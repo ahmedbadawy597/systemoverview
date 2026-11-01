@@ -3,8 +3,11 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   Award,
+  ChevronLeft,
   ExternalLink,
+  Eye,
   FileCheck2,
+  FileText,
   Gauge,
   Landmark,
   LayoutGrid,
@@ -12,10 +15,31 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { Link } from "react-router-dom"
+import { toast } from "sonner"
 import { Logo } from "@/components/brand/Logo"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useCountUp } from "@/hooks/useCountUp"
 import { formatNumber } from "@/lib/format"
+import { openMinisterReportPdf } from "@/lib/ministerReportPdf"
 import { cn } from "@/lib/utils"
+
+type MinisterReport = {
+  id: string
+  period: string
+  title: string
+  scope: string
+  summary: string
+  metrics: { label: string; value: string }[]
+  highlights: string[]
+}
 
 const SECTIONS = [
   { id: "top", label: "الرئيسية" },
@@ -57,21 +81,60 @@ const APPS: {
   },
 ]
 
-const REPORTS = [
+const REPORTS: MinisterReport[] = [
   {
+    id: "mosques-q3",
     period: "الربع الثالث",
     title: "إنجازات منظومة المساجد",
     scope: "منظومة المساجد",
+    summary:
+      "عرض تجريبي لإنجازات منظومة إدخال بيانات المساجد خلال الربع الثالث، يشمل تحديث السجلات واكتمال البيانات الأساسية على مستوى المديريات.",
+    metrics: [
+      { label: "مساجد محدَّثة", value: "١٬٢٤٠" },
+      { label: "مديريات مكتملة", value: "١٨" },
+      { label: "نسبة الاكتمال", value: "٨٧٪" },
+    ],
+    highlights: [
+      "استكمال بيانات المساجد في ١٨ مديرية خلال الربع.",
+      "تقليل زمن إدخال السجل الجديد إلى أقل من دقيقتين.",
+      "توحيد حقول العنوان والإحداثيات عبر المنظومة.",
+    ],
   },
   {
+    id: "quran-sep-2026",
     period: "سبتمبر ٢٠٢٦",
     title: "نتائج المسابقة العالمية للقرآن",
     scope: "المسابقة العالمية",
+    summary:
+      "عرض تجريبي لنتائج المسابقة العالمية للقرآن الكريم لشهر سبتمبر ٢٠٢٦، مع ملخص المشاركين والفائزين حسب الفروع الرئيسية.",
+    metrics: [
+      { label: "المشاركون", value: "٣٬٤٨٠" },
+      { label: "الدول", value: "٤٢" },
+      { label: "الفائزون", value: "٣٦" },
+    ],
+    highlights: [
+      "افتتاح باب التسجيل الإلكتروني عبر بوابة المسابقة.",
+      "اعتماد نتائج الفروع الثلاثة بعد المراجعة النهائية.",
+      "إصدار شهادات الفائزين عبر المنظومة الرقمية.",
+    ],
   },
   {
+    id: "kpi-q2",
     period: "الربع الثاني",
     title: "مؤشرات الأداء الاستراتيجية",
     scope: "مؤشرات الأداء",
+    summary:
+      "عرض تجريبي لمؤشرات الأداء الاستراتيجية للوزارة في الربع الثاني، لمتابعة نسب الإنجاز مقابل المستهدفات المعتمدة.",
+    metrics: [
+      { label: "مؤشرات متابعة", value: "٢٤" },
+      { label: "تحقق المستهدف", value: "٧٩٪" },
+      { label: "مؤشرات متقدمة", value: "١١" },
+    ],
+    highlights: [
+      "ارتفاع مؤشر التحول الرقمي بنسبة ١٢٪ عن الربع السابق.",
+      "استقرار مؤشرات خدمة المساجد ضمن النطاق المستهدف.",
+      "تحديد ثلاثة مؤشرات تحتاج تدخلًا إداريًا في الربع التالي.",
+    ],
   },
 ]
 
@@ -271,6 +334,7 @@ function GoldBorderFrame() {
 export function MinisterDashboardPage() {
   const now = useNow()
   const [active, setActive] = useState<SectionId>("top")
+  const [selectedReport, setSelectedReport] = useState<MinisterReport | null>(null)
 
   useEffect(() => {
     const previous = document.title
@@ -466,34 +530,46 @@ export function MinisterDashboardPage() {
           <SectionHeading
             eyebrow="المتابعة الرسمية"
             title="تقارير النجاح"
-            description="عناوين التقارير المعروضة لمعالي الوزير. للعرض فقط بدون روابط."
+            description="اضغط على أي تقرير لعرض نسخة تجريبية من ملخصه ومؤشراته، بنفس أسلوب فتح الملاحظة."
             count={REPORTS.length}
           />
           <ol className="stagger overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
             {REPORTS.map((report, index) => (
-              <li
-                key={report.title}
-                className="group relative flex items-start gap-4 border-b border-line-soft px-5 py-5 transition-[background-color] duration-200 last:border-b-0 hover:bg-[#fbf8f1] sm:items-center sm:gap-5 sm:px-6"
-              >
-                <span
-                  className="absolute inset-y-3 start-0 w-[3px] origin-center scale-y-0 rounded-full bg-gold transition-transform duration-300 group-hover:scale-y-100"
-                  aria-hidden
-                />
-                <span className="tabular flex size-11 flex-none items-center justify-center rounded-xl bg-[var(--status-pending-bg)] text-[15px] font-bold text-[#6a5216] ring-1 ring-gold/25 transition-transform duration-300 group-hover:scale-105">
-                  {formatNumber(index + 1)}
-                </span>
-                <div className="grid min-w-0 flex-1 gap-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-surface-tint px-2.5 py-0.5 text-[11.5px] font-bold text-brand ring-1 ring-brand/10">
-                      {report.period}
-                    </span>
-                    <span className="text-[11.5px] font-semibold text-muted-foreground">{report.scope}</span>
+              <li key={report.id} className="border-b border-line-soft last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedReport(report)}
+                  className="group relative flex w-full items-start gap-4 px-5 py-5 text-start transition-[background-color] duration-200 hover:bg-[#fbf8f1] focus-visible:bg-[#fbf8f1] focus-visible:outline-none sm:items-center sm:gap-5 sm:px-6"
+                >
+                  <span
+                    className="absolute inset-y-3 start-0 w-[3px] origin-center scale-y-0 rounded-full bg-gold transition-transform duration-300 group-hover:scale-y-100 group-focus-visible:scale-y-100"
+                    aria-hidden
+                  />
+                  <span className="tabular flex size-11 flex-none items-center justify-center rounded-xl bg-[var(--status-pending-bg)] text-[15px] font-bold text-[#6a5216] ring-1 ring-gold/25 transition-transform duration-300 group-hover:scale-105">
+                    {formatNumber(index + 1)}
+                  </span>
+                  <div className="grid min-w-0 flex-1 gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-surface-tint px-2.5 py-0.5 text-[11.5px] font-bold text-brand ring-1 ring-brand/10">
+                        {report.period}
+                      </span>
+                      <span className="text-[11.5px] font-semibold text-muted-foreground">{report.scope}</span>
+                    </div>
+                    <p className="text-[15.5px] leading-7 font-bold text-foreground transition-colors group-hover:text-brand-dark">
+                      {report.title}
+                    </p>
+                    <p className="line-clamp-1 text-[12.5px] text-muted-foreground sm:hidden">{report.summary}</p>
                   </div>
-                  <p className="text-[15.5px] leading-7 font-bold text-foreground">{report.title}</p>
-                </div>
-                <span className="hidden size-10 flex-none items-center justify-center rounded-full bg-surface-soft text-brand ring-1 ring-line-soft transition-[background-color,transform] duration-300 group-hover:bg-brand group-hover:text-white sm:flex">
-                  <FileCheck2 className="size-[18px]" strokeWidth={1.75} aria-hidden />
-                </span>
+                  <span className="ms-auto flex flex-none items-center gap-2">
+                    <span className="hidden items-center gap-1.5 rounded-full bg-surface-soft px-3 py-1.5 text-[12px] font-bold text-brand ring-1 ring-line-soft transition-colors group-hover:bg-brand group-hover:text-white group-hover:ring-brand sm:inline-flex">
+                      <Eye className="size-3.5" aria-hidden />
+                      عرض التقرير
+                    </span>
+                    <span className="flex size-10 items-center justify-center rounded-full bg-surface-soft text-brand ring-1 ring-line-soft transition-[background-color,color,transform] duration-300 group-hover:-translate-x-0.5 group-hover:bg-brand group-hover:text-white">
+                      <ChevronLeft className="size-4" aria-hidden />
+                    </span>
+                  </span>
+                </button>
               </li>
             ))}
           </ol>
@@ -506,6 +582,96 @@ export function MinisterDashboardPage() {
           </Link>
         </footer>
       </main>
+
+      <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
+        <DialogContent className="max-h-[min(90dvh,760px)] gap-0 overflow-hidden p-0 sm:max-w-2xl" showCloseButton>
+          {selectedReport && (
+            <>
+              <div className="border-b border-line-soft bg-gradient-to-l from-surface via-surface to-[#fbf8f1] px-6 pt-6 pb-5">
+                <DialogHeader className="gap-3 pe-8">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-surface-tint px-2.5 py-0.5 text-[11.5px] font-bold text-brand ring-1 ring-brand/10">
+                      {selectedReport.period}
+                    </span>
+                    <span className="rounded-full bg-[var(--status-pending-bg)] px-2.5 py-0.5 text-[11.5px] font-bold text-[#6a5216] ring-1 ring-gold/20">
+                      عرض تجريبي
+                    </span>
+                    <span className="rounded-full bg-surface px-2.5 py-0.5 text-[11.5px] font-semibold text-muted-foreground ring-1 ring-line">
+                      {selectedReport.scope}
+                    </span>
+                  </div>
+                  <DialogTitle className="font-formal text-[24px] leading-9 text-brand-dark">
+                    {selectedReport.title}
+                  </DialogTitle>
+                  <DialogDescription className="text-[14px] leading-7 text-muted-foreground">
+                    {selectedReport.summary}
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+
+              <div className="grid max-h-[min(58dvh,460px)] gap-5 overflow-y-auto px-6 py-5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {selectedReport.metrics.map((metric) => (
+                    <div
+                      key={metric.label}
+                      className="relative overflow-hidden rounded-xl border border-line bg-surface px-3.5 py-4 text-center shadow-card"
+                    >
+                      <span className="absolute inset-x-0 top-0 h-[3px] bg-gold" aria-hidden />
+                      <p className="tabular text-[24px] leading-none font-bold text-brand-dark">{metric.value}</p>
+                      <p className="mt-2.5 text-[12px] font-semibold text-muted-foreground">{metric.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-3 rounded-xl border border-line bg-surface p-4 shadow-xs sm:p-5">
+                  <div className="flex items-center gap-2">
+                    <FileCheck2 className="size-4 text-brand" strokeWidth={1.75} aria-hidden />
+                    <p className="text-[13.5px] font-bold text-foreground">أبرز النقاط</p>
+                  </div>
+                  <ul className="grid gap-3">
+                    {selectedReport.highlights.map((item, index) => (
+                      <li key={item} className="flex items-start gap-3 text-[13.5px] leading-7 text-muted-foreground">
+                        <span className="tabular mt-0.5 flex size-6 flex-none items-center justify-center rounded-full bg-[var(--status-pending-bg)] text-[11px] font-bold text-[#6a5216]">
+                          {formatNumber(index + 1)}
+                        </span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <p className="rounded-lg bg-surface-soft px-3.5 py-3 text-[12px] leading-6 text-muted-foreground ring-1 ring-line-soft">
+                  محتوى تجريبي للعرض داخل اللوحة. زر «فتح PDF» يفتح مستندًا رسميًا يمكن حفظه كملف PDF من نافذة الطباعة.
+                </p>
+              </div>
+
+              <DialogFooter className="m-0 rounded-none border-t border-line-soft bg-surface-soft/80 px-6 py-4">
+                <Button type="button" variant="outline" onClick={() => setSelectedReport(null)}>
+                  إغلاق
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const opened = openMinisterReportPdf(selectedReport)
+                    if (!opened) {
+                      toast.error("تعذر فتح نافذة PDF", {
+                        description: "اسمح بالنوافذ المنبثقة ثم أعد المحاولة.",
+                      })
+                      return
+                    }
+                    toast.success("تم فتح مستند التقرير", {
+                      description: "استخدم طباعة / حفظ PDF من النافذة الجديدة.",
+                    })
+                  }}
+                >
+                  <FileText aria-hidden />
+                  فتح PDF
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

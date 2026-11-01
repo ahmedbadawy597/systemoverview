@@ -33,7 +33,7 @@ export function DeleteNoteDialog({ ticket, pending, onConfirm, onCancel }: Delet
             {ticket ? (
               <>
                 سيتم حذف الملاحظة رقم <span className="tabular font-bold text-foreground">{formatId(ticket.id)}</span> «
-                <span className="font-bold text-foreground">{ticket.name}</span>» من سجل Google Sheets مع صورها وملاحظات
+                <span className="font-bold text-foreground">{ticket.name}</span>» من سجل الوزارة مع صورها وملاحظات
                 المبرمجين. لا يمكن التراجع عن هذا الإجراء.
               </>
             ) : null}

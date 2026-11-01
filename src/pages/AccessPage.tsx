@@ -64,10 +64,6 @@ export function AccessPage() {
             </ul>
           </div>
 
-          <p className="text-center text-xs leading-5 text-muted-foreground">
-            جميع البيانات محفوظة في سجل الوزارة على Google Sheets.
-          </p>
-
           <Link
             to="/minister"
             className="group flex items-center gap-4 rounded-xl border border-gold/40 bg-[#fbf8f1] px-5 py-3.5 shadow-xs transition-[border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-gold hover:shadow-raised active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

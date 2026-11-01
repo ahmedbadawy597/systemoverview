@@ -135,7 +135,7 @@ export function SettingsPage() {
         </ul>
       </SettingsSection>
 
-      <SettingsSection title="الاتصال بالخادم" description="مصدر البيانات هو Google Sheets عبر Google Apps Script.">
+      <SettingsSection title="الاتصال بالخادم" description="مصدر البيانات هو خادم الوزارة عبر Google Apps Script.">
         <ConnectionPanel />
       </SettingsSection>
     </div>

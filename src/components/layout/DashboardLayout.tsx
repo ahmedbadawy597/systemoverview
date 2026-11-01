@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import { Outlet, useLocation } from "react-router-dom"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { DataSourceNotice } from "./DataSourceNotice"
 import { Header } from "./Header"
 import { Sidebar } from "./Sidebar"
 
@@ -69,7 +68,6 @@ export function DashboardLayout() {
           onOpenMobileNav={() => setMobileOpen(true)}
         />
         <main id="main" tabIndex={-1} className="mx-auto grid w-full max-w-[1400px] flex-1 content-start gap-6 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
-          <DataSourceNotice />
           <div key={pathname} className="page-enter grid min-w-0">
             <Outlet />
           </div>
