@@ -1,0 +1,389 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./styles/print.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Brand variables, exactly as specified. */
+:root {
+  --background: #f7f9f8;
+  --foreground: #1e2939;
+  --primary: #14533d;
+  --primary-dark: #0f3a32;
+  --primary-btn: #0b735d;
+  --gold: #a18841;
+  --gold-light: #c5a869;
+  --input-bg: #f8faf9;
+  --input-border: #bec9c3;
+  --muted: #6e7a75;
+  --danger: #ba1a1a;
+  --radius: 8px;
+}
+
+/* Derived roles. Kept separate so the specified variables stay untouched. */
+:root {
+  --surface: #ffffff;
+  --surface-soft: #f1f5f3;
+  --surface-tint: #e8f0ec;
+  --line: #e2e8e5;
+  --line-soft: #edf1ef;
+  /* --muted (#6e7a75) is 4.47:1 on white; small running text uses this 5.5:1 step instead. */
+  --muted-text: #5c6863;
+
+  --status-pending-bg: #f7efd9;
+  --status-pending-ink: #6a5216;
+  --status-pending-dot: #a18841;
+  --status-approved-bg: #e2f1e9;
+  --status-approved-ink: #0f4a35;
+  --status-approved-dot: #0b735d;
+  --status-idle-bg: #eef1f0;
+  --status-idle-ink: #46524d;
+  --status-idle-dot: #8a9590;
+  --status-study-bg: #e3edf6;
+  --status-study-ink: #1b3f5e;
+  --status-study-dot: #3a6d97;
+  --status-resolved-bg: #dff2e7;
+  --status-resolved-ink: #0d4a2e;
+  --status-resolved-dot: #1f8a55;
+
+  /* Elevation, tinted with the brand green so shadows read as depth, not grey haze. */
+  --shadow-xs: 0 1px 2px rgba(15, 58, 50, 0.05);
+  --shadow-card: 0 1px 2px rgba(15, 58, 50, 0.04), 0 2px 6px -2px rgba(15, 58, 50, 0.06), 0 0 0 1px rgba(15, 58, 50, 0.015);
+  --shadow-raised: 0 2px 4px -1px rgba(15, 58, 50, 0.06), 0 10px 24px -8px rgba(15, 58, 50, 0.14);
+  --shadow-float: 0 16px 40px -12px rgba(15, 58, 50, 0.22), 0 4px 10px -4px rgba(15, 58, 50, 0.1);
+  --shadow-overlay: 0 28px 64px -16px rgba(15, 58, 50, 0.32), 0 8px 20px -8px rgba(15, 58, 50, 0.14);
+  --shadow-btn: 0 1px 2px rgba(11, 115, 93, 0.24), 0 4px 10px -4px rgba(11, 115, 93, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --shadow-btn-hover: 0 2px 4px rgba(11, 115, 93, 0.24), 0 10px 20px -8px rgba(11, 115, 93, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --shadow-header: 0 1px 0 var(--line-soft), 0 6px 18px -12px rgba(15, 58, 50, 0.18);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 420ms;
+
+  --sidebar-width: 264px;
+  --sidebar-collapsed: 80px;
+  --header-height: 64px;
+
+  /* shadcn roles mapped onto the brand */
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-soft);
+  --secondary-foreground: var(--primary-dark);
+  --accent: var(--surface-tint);
+  --accent-foreground: var(--primary-dark);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--input-border);
+  --ring: var(--primary-btn);
+}
+
+@theme inline {
+  --font-sans: "Cairo", "Noto Kufi Arabic", "Segoe UI", Tahoma, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-formal: "Amiri", "Scheherazade New", "Times New Roman", serif;
+  --font-decorative: "Scheherazade New", "Amiri", serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  /* Buttons and focus use the specified button green; brand surfaces use --color-brand. */
+  --color-primary: var(--primary-btn);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--surface-soft);
+  --color-muted-foreground: var(--muted-text);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand: var(--primary);
+  --color-brand-dark: var(--primary-dark);
+  --color-brand-btn: var(--primary-btn);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+  --color-faint: var(--muted);
+  --color-danger: var(--danger);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-surface-tint: var(--surface-tint);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 2.5);
+  --radius-4xl: calc(var(--radius) * 3);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-float: var(--shadow-float);
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-btn: var(--shadow-btn);
+  --shadow-btn-hover: var(--shadow-btn-hover);
+  --shadow-header: var(--shadow-header);
+
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
+
+  --animate-rise: rise var(--duration-slow) var(--ease-out) both;
+  --animate-fade: fade var(--duration-base) var(--ease-out) both;
+  --animate-bar: bar-fill 900ms var(--ease-out) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/* Children of a .stagger container rise in sequence; --stagger-step sets the interval. */
+.stagger > * {
+  animation: rise var(--duration-slow) var(--ease-out) both;
+  animation-delay: calc(var(--stagger-index, 0) * var(--stagger-step, 55ms));
+}
+.stagger > :nth-child(1) { --stagger-index: 0; }
+.stagger > :nth-child(2) { --stagger-index: 1; }
+.stagger > :nth-child(3) { --stagger-index: 2; }
+.stagger > :nth-child(4) { --stagger-index: 3; }
+.stagger > :nth-child(5) { --stagger-index: 4; }
+.stagger > :nth-child(6) { --stagger-index: 5; }
+.stagger > :nth-child(7) { --stagger-index: 6; }
+.stagger > :nth-child(8) { --stagger-index: 7; }
+.stagger > :nth-child(n + 9) { --stagger-index: 8; }
+
+/* Each route's sections enter in order after navigation. */
+.page-enter > * > * {
+  animation: rise var(--duration-slow) var(--ease-out) both;
+}
+.page-enter > * > :nth-child(2) { animation-delay: 50ms; }
+.page-enter > * > :nth-child(3) { animation-delay: 100ms; }
+.page-enter > * > :nth-child(4) { animation-delay: 150ms; }
+.page-enter > * > :nth-child(n + 5) { animation-delay: 200ms; }
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-size: 14px;
+    line-height: 1.65;
+    text-rendering: optimizeLegibility;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  ::selection {
+    background: var(--gold-light);
+    color: var(--primary-dark);
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes upload-progress {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-300%);
+  }
+}
+
+/* Minister hero: gold line that travels the full perimeter of the rounded frame. */
+@keyframes minister-border-chase {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+@keyframes minister-glow {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes minister-sheen {
+  0% {
+    transform: translateX(120%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(-180%) skewX(-18deg);
+  }
+}
+
+.minister-hero {
+  position: relative;
+  isolation: isolate;
+}
+
+.minister-hero__glow {
+  position: absolute;
+  inset: -18%;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 40%, rgba(193, 168, 105, 0.28), transparent 70%),
+    radial-gradient(ellipse 40% 50% at 80% 20%, rgba(11, 115, 93, 0.18), transparent 65%);
+  animation: minister-glow 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.minister-hero__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.minister-hero__frame-track {
+  fill: none;
+  stroke: rgba(193, 168, 105, 0.28);
+  stroke-width: 1.5;
+}
+
+.minister-hero__frame-chase {
+  fill: none;
+  stroke: url(#minister-gold-gradient);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 22 78;
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 6px rgba(197, 168, 105, 0.65));
+  animation: minister-border-chase 4.8s linear infinite;
+}
+
+.minister-hero__sheen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.minister-hero__sheen::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 248, 220, 0.08),
+    rgba(197, 168, 105, 0.16),
+    rgba(255, 248, 220, 0.08),
+    transparent
+  );
+  animation: minister-sheen 7.5s ease-in-out 1.2s infinite;
+}
+
+.minister-hero__copy > * {
+  animation: rise 700ms var(--ease-out) both;
+}
+.minister-hero__copy > :nth-child(1) { animation-delay: 80ms; }
+.minister-hero__copy > :nth-child(2) { animation-delay: 180ms; }
+.minister-hero__copy > :nth-child(3) { animation-delay: 280ms; }
+.minister-hero__copy > :nth-child(4) { animation-delay: 380ms; }
+
+.minister-hero__logo-plate {
+  animation: rise 700ms var(--ease-out) 40ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .minister-hero__frame-chase {
+    animation: none;
+    stroke-dasharray: none;
+    stroke: #c5a869;
+    opacity: 0.9;
+  }
+
+  .minister-hero__glow,
+  .minister-hero__sheen::after {
+    animation: none;
+  }
+}
