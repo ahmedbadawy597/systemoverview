@@ -1,37 +1,72 @@
-import { useMemo, useState } from "react"
-import { Bell, BadgeCheck, Wrench } from "lucide-react"
-import { Link } from "react-router-dom"
+import { useState, type ReactNode } from "react"
+import {
+  BadgeCheck,
+  Bell,
+  CheckCheck,
+  FileText,
+  LayoutGrid,
+  Loader2,
+  MessageCircle,
+  Wrench,
+} from "lucide-react"
+import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { DEV_LABELS } from "@/domain/ticket"
-import { useTicketList, useTicketStats } from "@/hooks/useTickets"
-import { formatId, formatNumber, formatRelative } from "@/lib/format"
+import { notificationHref, type AppNotification } from "@/domain/notification"
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationsRead,
+  useNotificationsList,
+  useUnreadNotificationsCount,
+} from "@/hooks/useNotifications"
+import { formatNumber, formatRelative } from "@/lib/format"
+import { cn } from "@/lib/utils"
 import { useAuth } from "@/services/auth/AuthProvider"
 
-/** Pending approvals + recent developer updates from the API. */
+function iconFor(type: string): ReactNode {
+  if (type.startsWith("ticket.approved") || type === "ticket.created") {
+    return <BadgeCheck className="size-4 text-gold" />
+  }
+  if (type.startsWith("ticket.dev")) {
+    return <Wrench className="size-4 text-[var(--status-study-dot)]" />
+  }
+  if (type.startsWith("chat.")) {
+    return <MessageCircle className="size-4 text-brand" />
+  }
+  if (type.startsWith("report.")) {
+    return <FileText className="size-4 text-brand" />
+  }
+  if (type.startsWith("app.")) {
+    return <LayoutGrid className="size-4 text-brand" />
+  }
+  return <Bell className="size-4 text-faint" />
+}
+
 export function NotificationsMenu() {
-  const { can } = useAuth()
-  const canApprove = can("approve")
-  const canReview = can("devReview")
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
-  const { data: stats } = useTicketStats({}, can("view"))
-  const pendingQuery = useTicketList(
-    { page: 1, limit: 5, approval: "pending", sort: "createdAt", order: "asc" },
-    open && canApprove,
-  )
-  const updatesQuery = useTicketList(
-    { page: 1, limit: 5, sort: "devUpdatedAt", order: "desc" },
-    open && canReview,
-  )
+  const navigate = useNavigate()
+  const unreadQuery = useUnreadNotificationsCount(Boolean(user))
+  const listQuery = useNotificationsList(open && Boolean(user), 20)
+  const markRead = useMarkNotificationsRead()
+  const markAll = useMarkAllNotificationsRead()
 
-  const pending = canApprove ? pendingQuery.data?.items ?? [] : []
-  const updates = useMemo(
-    () => (canReview ? (updatesQuery.data?.items ?? []).filter((t) => Boolean(t.devUpdatedAt)) : []),
-    [canReview, updatesQuery.data],
-  )
-
-  const count = canApprove ? (stats?.pending ?? pending.length) : 0
+  const count = unreadQuery.data ?? 0
+  const items = listQuery.data?.items ?? []
   const close = () => setOpen(false)
+
+  async function openItem(n: AppNotification) {
+    if (!n.readAt) {
+      try {
+        await markRead.mutateAsync([n.id])
+      } catch {
+        // still navigate
+      }
+    }
+    close()
+    const href = notificationHref(n)
+    if (href) navigate(href)
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -40,73 +75,123 @@ export function NotificationsMenu() {
           variant="ghost"
           size="icon"
           className="relative text-[#3d4945] hover:bg-surface"
-          aria-label={count ? `التنبيهات: ${formatNumber(count)} ملاحظة بانتظار التصديق` : "التنبيهات"}
+          aria-label={count ? `التنبيهات: ${formatNumber(count)} غير مقروء` : "التنبيهات"}
         >
           <Bell className="size-[19px]" strokeWidth={1.75} />
           {count > 0 && (
             <span className="tabular absolute -top-0.5 -end-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold text-white ring-2 ring-background">
-              {formatNumber(count)}
+              {formatNumber(count > 99 ? 99 : count)}
+              {count > 99 ? "+" : ""}
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(360px,calc(100vw-24px))] gap-0 p-0">
-        <div className="flex items-center justify-between border-b border-line-soft px-4 py-3">
-          <p className="text-[14px] font-bold">التنبيهات</p>
-          <span className="text-xs text-muted-foreground">آخر ٧ أيام</span>
-        </div>
-        <div className="max-h-[380px] overflow-y-auto py-1">
-          {pending.length === 0 && updates.length === 0 && (
-            <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">لا توجد تنبيهات جديدة.</p>
-          )}
-          {pending.length > 0 && (
-            <Group title={`بانتظار التصديق (${formatNumber(pending.length)})`}>
-              {pending.slice(0, 4).map((t) => (
-                <Item key={t.id} to={`/notes/${t.id}`} onClick={close} icon={<BadgeCheck className="size-4 text-gold" />}
-                  title={t.name}
-                  meta={`رقم ${formatId(t.id)} · أضيفت ${formatRelative(t.createdAt)}`}
-                />
-              ))}
-              {pending.length > 4 && (
-                <Link to="/approval" onClick={close} className="block px-4 py-2 text-[13px] font-semibold text-brand-btn hover:underline">
-                  عرض كل الملاحظات بانتظار التصديق
-                </Link>
-              )}
-            </Group>
-          )}
-          {updates.length > 0 && (
-            <Group title="تحديثات المبرمجين">
-              {updates.slice(0, 4).map((t) => (
-                <Item key={t.id} to={`/notes/${t.id}`} onClick={close} icon={<Wrench className="size-4 text-[var(--status-study-dot)]" />}
-                  title={t.name}
-                  meta={`${DEV_LABELS[t.devStatus]} · ${formatRelative(t.devUpdatedAt)}`}
-                />
-              ))}
-            </Group>
+      <PopoverContent align="end" className="w-[min(380px,calc(100vw-24px))] gap-0 p-0">
+        <div className="flex items-center justify-between gap-3 border-b border-line-soft px-4 py-3">
+          <div className="grid gap-0.5">
+            <p className="text-[14px] font-bold">التنبيهات</p>
+            <p className="text-[11.5px] text-muted-foreground">
+              {count > 0 ? `${formatNumber(count)} غير مقروء` : "لا توجد تنبيهات غير مقروءة"}
+            </p>
+          </div>
+          {count > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-[12px]"
+              disabled={markAll.isPending}
+              onClick={() => void markAll.mutateAsync()}
+            >
+              {markAll.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-3.5" />}
+              قراءة الكل
+            </Button>
           )}
         </div>
+
+        <div className="max-h-[420px] overflow-y-auto py-1">
+          {listQuery.isLoading ? (
+            <p className="flex items-center justify-center gap-2 px-4 py-10 text-[13px] text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              جارٍ التحميل…
+            </p>
+          ) : listQuery.isError ? (
+            <div className="grid gap-2 px-4 py-8 text-center">
+              <p className="text-[13px] text-danger">تعذّر تحميل التنبيهات.</p>
+              <Button variant="outline" size="sm" className="mx-auto" onClick={() => void listQuery.refetch()}>
+                إعادة المحاولة
+              </Button>
+            </div>
+          ) : items.length === 0 ? (
+            <p className="px-4 py-10 text-center text-[13px] text-muted-foreground">لا توجد تنبيهات حتى الآن.</p>
+          ) : (
+            <ul className="divide-y divide-line-soft">
+              {items.map((n) => {
+                const href = notificationHref(n)
+                const unread = !n.readAt
+                const content = (
+                  <>
+                    <span className="mt-0.5 flex size-8 flex-none items-center justify-center rounded-full bg-surface-soft">
+                      {iconFor(n.type)}
+                    </span>
+                    <span className="grid min-w-0 flex-1 gap-0.5">
+                      <span className="flex items-center gap-2">
+                        <span className={cn("truncate text-[13px]", unread ? "font-bold text-foreground" : "font-semibold text-foreground")}>
+                          {n.title}
+                        </span>
+                        {unread && <span className="size-1.5 flex-none rounded-full bg-gold" aria-label="غير مقروء" />}
+                      </span>
+                      <span className="line-clamp-2 text-[12px] leading-5 text-muted-foreground">{n.body}</span>
+                      <span className="tabular text-[11px] text-faint">{formatRelative(n.createdAt)}</span>
+                    </span>
+                  </>
+                )
+
+                return (
+                  <li key={n.id}>
+                    {href ? (
+                      <button
+                        type="button"
+                        onClick={() => void openItem(n)}
+                        className={cn(
+                          "flex w-full items-start gap-3 px-4 py-3 text-start transition-colors hover:bg-surface-soft focus-visible:bg-surface-soft focus-visible:outline-none",
+                          unread && "bg-[#fbf8ef]/60",
+                        )}
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (unread) void markRead.mutateAsync([n.id])
+                        }}
+                        className={cn(
+                          "flex w-full items-start gap-3 px-4 py-3 text-start transition-colors hover:bg-surface-soft",
+                          unread && "bg-[#fbf8ef]/60",
+                        )}
+                      >
+                        {content}
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
+        {items.some((n) => n.type.startsWith("ticket.") && notificationHref(n)) && (
+          <div className="border-t border-line-soft px-4 py-2">
+            <Link
+              to="/notes"
+              onClick={close}
+              className="block text-center text-[12.5px] font-semibold text-brand-btn hover:underline"
+            >
+              عرض الملاحظات
+            </Link>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
-  )
-}
-
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="py-1">
-      <p className="px-4 pt-2 pb-1 text-xs font-semibold text-muted-foreground">{title}</p>
-      {children}
-    </div>
-  )
-}
-
-function Item({ to, onClick, icon, title, meta }: { to: string; onClick: () => void; icon: React.ReactNode; title: string; meta: string }) {
-  return (
-    <Link to={to} onClick={onClick} className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-surface-soft focus-visible:bg-surface-soft focus-visible:outline-none">
-      <span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-full bg-surface-soft">{icon}</span>
-      <span className="grid min-w-0 gap-0.5">
-        <span className="truncate text-[13px] font-semibold text-foreground">{title}</span>
-        <span className="text-xs text-muted-foreground">{meta}</span>
-      </span>
-    </Link>
   )
 }
