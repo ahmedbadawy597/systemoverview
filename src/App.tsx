@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { FileQuestion } from "lucide-react"
+import { FileQuestion, Loader2 } from "lucide-react"
 import { createHashRouter, Link, Outlet, RouterProvider } from "react-router-dom"
 import { EmptyState } from "@/components/common/EmptyState"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
@@ -9,16 +9,17 @@ import { Button } from "@/components/ui/button"
 import { DirectionProvider } from "@/components/ui/direction"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { AccessPage } from "@/pages/AccessPage"
 import { AddNotePage } from "@/pages/AddNotePage"
 import { ApprovalPage } from "@/pages/ApprovalPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { DeveloperReviewPage } from "@/pages/DeveloperReviewPage"
+import { LoginPage } from "@/pages/LoginPage"
+import { MinisterDashboardPage } from "@/pages/MinisterDashboardPage"
 import { NoteDetailsPage } from "@/pages/NoteDetailsPage"
 import { NotesPage } from "@/pages/NotesPage"
 import { ReportsPage } from "@/pages/ReportsPage"
-import { MinisterDashboardPage } from "@/pages/MinisterDashboardPage"
 import { SettingsPage } from "@/pages/SettingsPage"
+import { UsersPage } from "@/pages/UsersPage"
 import { AuthProvider, useAuth } from "@/services/auth/AuthProvider"
 
 const queryClient = new QueryClient({
@@ -30,8 +31,19 @@ const queryClient = new QueryClient({
 
 /** Session gate and the providers that need the router. */
 function AppShell() {
-  const { role } = useAuth()
-  if (!role) return <AccessPage />
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center gap-2 bg-background text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" aria-hidden />
+        جارٍ التحميل…
+      </div>
+    )
+  }
+
+  if (!user) return <LoginPage />
+
   return (
     <PrintReportProvider>
       <NoteActionsProvider>
@@ -71,6 +83,7 @@ const router = createHashRouter([
           { path: "approval", element: <ApprovalPage /> },
           { path: "developer", element: <DeveloperReviewPage /> },
           { path: "reports", element: <ReportsPage /> },
+          { path: "users", element: <UsersPage /> },
           { path: "settings", element: <SettingsPage /> },
           { path: "*", element: <NotFoundPage /> },
         ],

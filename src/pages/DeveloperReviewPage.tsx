@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { ClipboardCheck, PencilLine, SearchX } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ErrorState } from "@/components/common/ErrorState"
 import { TableSkeleton } from "@/components/common/LoadingSkeleton"
-import { RoleNotice } from "@/components/common/RoleNotice"
+import { PermissionEmpty } from "@/components/common/PermissionEmpty"
 import { SegmentedTabs } from "@/components/common/SegmentedTabs"
 import { TablePagination } from "@/components/common/TablePagination"
 import { PageHeader, Panel } from "@/components/layout/PageHeader"
@@ -14,12 +14,13 @@ import { DEV_TONE, StatusBadge } from "@/components/notes/StatusBadge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { applyFilters, EMPTY_FILTERS, type TicketFilters } from "@/domain/stats"
+import { EMPTY_FILTERS, type TicketFilters } from "@/domain/stats"
 import { DEV_LABELS, DEV_ORDER, type DevStatus, type Ticket } from "@/domain/ticket"
-import { useTickets, useUpdateDevReview } from "@/hooks/useTickets"
+import { useTicket, useTicketList, useTicketStats, useUpdateDevReview } from "@/hooks/useTickets"
 import { formatId, formatNumber, formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/services/auth/AuthProvider"
+import type { TicketDevFilter } from "@/services/api/ticketsApi"
 
 type View = "open" | DevStatus
 const VIEWS: View[] = ["open", ...DEV_ORDER]
@@ -32,12 +33,12 @@ const EDGE: Record<string, string> = {
 }
 
 export function DeveloperReviewPage() {
-  const { data, isLoading, error, refetch, isRefetching } = useTickets()
+  const { can } = useAuth()
+  const allowed = can("devReview")
   const [params, setParams] = useSearchParams()
   const [filters, setFiltersState] = useState<TicketFilters>(EMPTY_FILTERS)
   const [page, setPage] = useState(1)
-  const [editing, setEditing] = useState<Ticket | null>(null)
-  const all = useMemo(() => data ?? [], [data])
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const view: View = VIEWS.includes(params.get("status") as View) ? (params.get("status") as View) : "open"
   const setView = (next: View) => {
@@ -45,34 +46,54 @@ export function DeveloperReviewPage() {
     setPage(1)
   }
 
-  const counts = useMemo(() => {
-    const c = { open: 0, not_reviewed: 0, under_study: 0, resolved: 0 }
-    for (const t of all) {
-      c[t.devStatus] += 1
-      if (t.devStatus !== "resolved") c.open += 1
-    }
-    return c
-  }, [all])
+  const statsQuery = useTicketStats({}, allowed)
+  const counts = {
+    open: (statsQuery.data?.notReviewed ?? 0) + (statsQuery.data?.underStudy ?? 0),
+    not_reviewed: statsQuery.data?.notReviewed ?? 0,
+    under_study: statsQuery.data?.underStudy ?? 0,
+    resolved: statsQuery.data?.resolved ?? 0,
+  }
 
-  const list = useMemo(() => {
-    const base = applyFilters(all, filters)
-    return view === "open" ? base.filter((t) => t.devStatus !== "resolved") : base.filter((t) => t.devStatus === view)
-  }, [all, filters, view])
-  const visible = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const liveEditing = editing ? (all.find((t) => t.id === editing.id) ?? editing) : null
+  const devStatus: TicketDevFilter = view === "open" ? "open" : view
+
+  const { data, isLoading, error, refetch, isRefetching } = useTicketList(
+    {
+      page,
+      limit: PAGE_SIZE,
+      q: filters.query,
+      approval: filters.approval,
+      devStatus,
+      sort: "createdAt",
+      order: "desc",
+    },
+    allowed,
+  )
+
+  const list = data?.items ?? []
+  const total = data?.total ?? 0
+  const editingQuery = useTicket(editingId ?? undefined)
+  const liveEditing = editingQuery.ticket ?? list.find((t) => t.id === editingId) ?? null
+
+  if (!allowed) {
+    return (
+      <div className="grid gap-6">
+        <PageHeader title="مراجعة المبرمجين" description="تحديث حالة المراجعة الفنية للملاحظات." />
+        <PermissionEmpty permission="devReview" />
+      </div>
+    )
+  }
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="مراجعة المبرمجين"
         description={
-          isLoading
+          isLoading || statsQuery.isLoading
             ? "جارٍ تحميل الملاحظات…"
             : `${formatNumber(counts.open)} ملاحظة تحتاج متابعة: ${formatNumber(counts.not_reviewed)} لم تُراجع بعد و${formatNumber(counts.under_study)} قيد الدراسة.`
         }
       />
 
-      <RoleNotice permission="devReview" action="تحديث حالة المراجعة" />
       {error && <ErrorState error={error} onRetry={() => refetch()} retrying={isRefetching} />}
 
       <SegmentedTabs
@@ -95,7 +116,10 @@ export function DeveloperReviewPage() {
               setFiltersState((f) => ({ ...f, ...patch }))
               setPage(1)
             }}
-            onClear={() => setFiltersState(EMPTY_FILTERS)}
+            onClear={() => {
+              setFiltersState(EMPTY_FILTERS)
+              setPage(1)
+            }}
             fields={["query", "approval"]}
             searchPlaceholder="ابحث في الملاحظات أو ملاحظات المبرمجين…"
           />
@@ -126,16 +150,16 @@ export function DeveloperReviewPage() {
               <span className="sr-only">تحرير</span>
             </div>
             <ul className="stagger divide-y divide-line-soft [--stagger-step:35ms]">
-              {visible.map((t) => (
-                <DevRow key={t.id} ticket={t} onEdit={() => setEditing(t)} />
+              {list.map((t) => (
+                <DevRow key={t.id} ticket={t} onEdit={() => setEditingId(t.id)} />
               ))}
             </ul>
-            <TablePagination page={page} pageSize={PAGE_SIZE} total={list.length} onPageChange={setPage} />
+            <TablePagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
           </>
         )}
       </Panel>
 
-      <Sheet open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+      <Sheet open={editingId !== null} onOpenChange={(open) => !open && setEditingId(null)}>
         <SheetContent side="left" className="w-full gap-0 overflow-y-auto p-0 sm:max-w-lg">
           {liveEditing && (
             <>
@@ -153,7 +177,7 @@ export function DeveloperReviewPage() {
                 </Link>
               </SheetHeader>
               <div className="p-6">
-                <DeveloperReviewForm ticket={liveEditing} onSaved={() => setEditing(null)} />
+                <DeveloperReviewForm ticket={liveEditing} onSaved={() => setEditingId(null)} />
               </div>
             </>
           )}

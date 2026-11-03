@@ -1,98 +1,106 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react"
-import { RolePasswordModal } from "@/components/auth/RolePasswordModal"
-import { can as roleCan, roleForPermission, ROLES, type Permission, type ProtectedRole, type Role } from "./roles"
-
-const STORAGE_KEY = "notes-system.role"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { toast } from "sonner"
+import type { PublicUser } from "@/domain/user"
+import { fetchMe, loginRequest, logoutRequest } from "@/services/api/authApi"
+import { ApiError } from "@/services/api/http"
+import { clearTokens, getAccessToken } from "@/services/api/session"
+import { PERMISSION_LABELS, type Permission } from "./roles"
 
 interface AuthContextValue {
-  role: Role | null
-  signIn: (role: Role) => void
+  user: PublicUser | null
+  loading: boolean
+  /** Highest system role — kept for compact UI badges. */
+  role: PublicUser["primaryRole"] | null
+  login: (username: string, password: string) => Promise<{ ok: true } | { ok: false; reason: "invalid" | "inactive" }>
   signOut: () => void
   can: (permission: Permission) => boolean
-  /** Resolves true once the session holds the permission, asking for the matching role password if needed. */
+  /** Resolves true if the logged-in account already has the permission; otherwise shows a toast. */
   ensure: (permission: Permission) => Promise<boolean>
-  /** Asks for a role password and switches the session to that role. */
-  elevate: (role: ProtectedRole) => Promise<boolean>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function readStoredRole(): Role | null {
-  try {
-    const value = sessionStorage.getItem(STORAGE_KEY)
-    return value && value in ROLES ? (value as Role) : null
-  } catch {
-    return null
-  }
-}
-
-type Prompt = { role: ProtectedRole; reason?: Permission }
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role | null>(readStoredRole)
-  const [prompt, setPrompt] = useState<Prompt | null>(null)
-  const resolver = useRef<((ok: boolean) => void) | null>(null)
+  const [user, setUser] = useState<PublicUser | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const signIn = useCallback((next: Role) => {
-    setRole(next)
-    try {
-      sessionStorage.setItem(STORAGE_KEY, next)
-    } catch {
-      // Private mode: the session simply will not survive a reload.
+  const refreshUser = useCallback(async () => {
+    if (!getAccessToken()) {
+      setUser(null)
+      return
     }
+    try {
+      const next = await fetchMe()
+      if (!next.isActive) {
+        clearTokens()
+        setUser(null)
+        return
+      }
+      setUser(next)
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.code === "UNAUTHORIZED")) {
+        clearTokens()
+        setUser(null)
+        return
+      }
+      throw error
+    }
+  }, [])
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        await refreshUser()
+      } catch {
+        clearTokens()
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [refreshUser])
+
+  const login = useCallback(async (username: string, password: string) => {
+    const result = await loginRequest(username, password)
+    if (!result.ok) return result
+    setUser(result.user)
+    return { ok: true as const }
   }, [])
 
   const signOut = useCallback(() => {
-    setRole(null)
-    try {
-      sessionStorage.removeItem(STORAGE_KEY)
-    } catch {
-      // ignore
-    }
+    void logoutRequest()
+    setUser(null)
   }, [])
 
-  const ask = useCallback((next: Prompt) => {
-    resolver.current?.(false)
-    setPrompt(next)
-    return new Promise<boolean>((resolve) => {
-      resolver.current = resolve
-    })
-  }, [])
+  const can = useCallback((permission: Permission) => !!user?.permissions.includes(permission), [user])
 
   const ensure = useCallback(
-    (permission: Permission) => {
-      if (roleCan(role, permission)) return Promise.resolve(true)
-      return ask({ role: roleForPermission(permission), reason: permission })
+    async (permission: Permission) => {
+      if (user?.permissions.includes(permission)) return true
+      toast.error("لا تملك صلاحية هذا الإجراء", {
+        description: `يتطلب صلاحية «${PERMISSION_LABELS[permission]}». اطلب من المدير تعيين الدور المناسب لحسابك.`,
+      })
+      return false
     },
-    [role, ask],
+    [user],
   )
-
-  const elevate = useCallback((target: ProtectedRole) => ask({ role: target }), [ask])
-
-  const finish = (ok: boolean) => {
-    if (ok && prompt) signIn(prompt.role)
-    resolver.current?.(ok)
-    resolver.current = null
-    setPrompt(null)
-  }
 
   const value = useMemo<AuthContextValue>(
-    () => ({ role, signIn, signOut, can: (p) => roleCan(role, p), ensure, elevate }),
-    [role, signIn, signOut, ensure, elevate],
+    () => ({
+      user,
+      loading,
+      role: user?.primaryRole ?? null,
+      login,
+      signOut,
+      can,
+      ensure,
+      refreshUser,
+    }),
+    [user, loading, login, signOut, can, ensure, refreshUser],
   )
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-      <RolePasswordModal
-        open={prompt !== null}
-        role={prompt?.role ?? "admin"}
-        confirmLabel="متابعة"
-        onVerified={() => finish(true)}
-        onCancel={() => finish(false)}
-      />
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { PermissionEmpty } from "@/components/common/PermissionEmpty"
 import { PageHeader, Panel } from "@/components/layout/PageHeader"
 import { NoteForm } from "@/components/notes/NoteForm"
 import {
@@ -15,11 +16,22 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useAddTicket } from "@/hooks/useTickets"
 import { formatId } from "@/lib/format"
+import { useAuth } from "@/services/auth/AuthProvider"
 
 export function AddNotePage() {
+  const { can } = useAuth()
   const navigate = useNavigate()
   const addTicket = useAddTicket()
   const [confirmLeave, setConfirmLeave] = useState(false)
+
+  if (!can("create")) {
+    return (
+      <div className="mx-auto grid w-full max-w-4xl gap-6">
+        <PageHeader title="إضافة ملاحظة جديدة" description="قم بإدخال بيانات الملاحظة وإرفاق الصور إن وجدت." />
+        <PermissionEmpty permission="create" />
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto grid w-full max-w-4xl gap-6">

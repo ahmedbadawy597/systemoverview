@@ -196,7 +196,7 @@ function SectionHeading({
           <span className="h-4 w-[3px] rounded-full bg-gold" aria-hidden />
           <p className="text-[12px] font-bold tracking-wide text-gold">{eyebrow}</p>
         </div>
-        <h2 className="text-[22px] leading-tight font-bold text-foreground sm:text-[24px]">{title}</h2>
+        <h2 className="font-heading text-[24px] leading-relaxed font-bold text-foreground sm:text-[28px]">{title}</h2>
         <p className="max-w-xl text-[13.5px] leading-7 text-muted-foreground">{description}</p>
       </div>
       {count !== undefined && (
@@ -368,7 +368,7 @@ export function MinisterDashboardPage() {
         <div className="mx-auto flex max-w-[1120px] items-center gap-3 px-4 py-3 sm:px-6">
           <Logo size={48} />
           <div className="grid min-w-0 leading-tight">
-            <p className="truncate text-[15px] font-bold text-brand-dark">وزارة الأوقاف المصرية</p>
+            <p className="font-formal truncate text-[18px] leading-relaxed font-bold text-brand-dark">وزارة الأوقاف المصرية</p>
             <p className="truncate text-xs text-muted-foreground">منظومات التحول الرقمي</p>
             <p className="truncate text-xs font-bold text-brand md:hidden">معالي وزير الأوقاف</p>
           </div>
@@ -440,9 +440,12 @@ export function MinisterDashboardPage() {
               <div className="minister-hero__logo-plate justify-self-center rounded-2xl bg-white p-2.5 shadow-float ring-1 ring-gold/35 lg:justify-self-start">
                 <Logo size={104} />
               </div>
-              <div className="minister-hero__copy grid justify-items-center gap-3 text-center lg:justify-items-start lg:text-start">
-                <p className="font-formal text-[18px] tracking-wide text-gold-light">معالي وزير الأوقاف</p>
-                <h1 className="font-formal text-[30px] leading-tight font-bold sm:text-[36px]">مرحباً بمعالي الوزير</h1>
+              <div className="minister-hero__copy grid justify-items-center gap-4 text-center lg:justify-items-start lg:text-start">
+                <p className="font-formal text-[22px] leading-relaxed text-gold-light sm:text-[24px]">وزارة الأوقاف المصرية</p>
+                <h1 className="font-formal text-[34px] leading-[1.35] font-bold text-white sm:text-[42px]">
+                  مرحباً بمعالي الوزير
+                </h1>
+                <p className="font-formal text-[18px] leading-relaxed text-gold-light/95 sm:text-[20px]">معالي وزير الأوقاف</p>
                 <p className="max-w-xl text-[15px] leading-8 text-white/80">
                   لوحة متابعة منظومات التحول الرقمي بوزارة الأوقاف، للوصول إلى التطبيقات والاطلاع على تقارير النجاح من مكان
                   واحد.
@@ -505,7 +508,7 @@ export function MinisterDashboardPage() {
                       </span>
                     </div>
                     <div className="grid gap-2">
-                      <h3 className="text-[16px] leading-7 font-bold text-foreground transition-colors group-hover:text-brand-dark">
+                      <h3 className="font-heading text-[18px] leading-relaxed font-bold text-foreground transition-colors group-hover:text-brand-dark">
                         {app.name}
                       </h3>
                       <p className="text-[13.5px] leading-7 text-muted-foreground">{app.description}</p>
@@ -555,7 +558,7 @@ export function MinisterDashboardPage() {
                       </span>
                       <span className="text-[11.5px] font-semibold text-muted-foreground">{report.scope}</span>
                     </div>
-                    <p className="text-[15.5px] leading-7 font-bold text-foreground transition-colors group-hover:text-brand-dark">
+                    <p className="font-heading text-[17px] leading-relaxed font-bold text-foreground transition-colors group-hover:text-brand-dark">
                       {report.title}
                     </p>
                     <p className="line-clamp-1 text-[12.5px] text-muted-foreground sm:hidden">{report.summary}</p>
@@ -600,7 +603,7 @@ export function MinisterDashboardPage() {
                       {selectedReport.scope}
                     </span>
                   </div>
-                  <DialogTitle className="font-formal text-[24px] leading-9 text-brand-dark">
+                  <DialogTitle className="font-formal text-[26px] leading-[1.5] text-brand-dark">
                     {selectedReport.title}
                   </DialogTitle>
                   <DialogDescription className="text-[14px] leading-7 text-muted-foreground">

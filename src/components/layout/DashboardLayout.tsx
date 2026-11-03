@@ -41,11 +41,11 @@ export function DashboardLayout() {
 
       <div
         className={cn(
-          "fixed inset-y-0 start-0 z-40 hidden border-e border-line transition-[width] duration-200 lg:block",
+          "fixed inset-y-0 start-0 z-40 hidden border-e border-line transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:block",
           collapsed ? "w-[var(--sidebar-collapsed)]" : "w-[var(--sidebar-width)]",
         )}
       >
-        <Sidebar collapsed={collapsed} />
+        <Sidebar collapsed={collapsed} onToggleCollapsed={() => setCollapsed((v) => !v)} />
       </div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -58,15 +58,11 @@ export function DashboardLayout() {
 
       <div
         className={cn(
-          "flex min-h-dvh flex-col transition-[padding] duration-200",
+          "flex min-h-dvh flex-col transition-[padding] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           collapsed ? "lg:ps-[var(--sidebar-collapsed)]" : "lg:ps-[var(--sidebar-width)]",
         )}
       >
-        <Header
-          collapsed={collapsed}
-          onToggleCollapsed={() => setCollapsed((v) => !v)}
-          onOpenMobileNav={() => setMobileOpen(true)}
-        />
+        <Header onOpenMobileNav={() => setMobileOpen(true)} />
         <main id="main" tabIndex={-1} className="mx-auto grid w-full max-w-[1400px] flex-1 content-start gap-6 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">
           <div key={pathname} className="page-enter grid min-w-0">
             <Outlet />

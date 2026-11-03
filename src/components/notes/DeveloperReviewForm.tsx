@@ -1,6 +1,6 @@
 import { forwardRef, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Clock, Loader2, Lock, Save } from "lucide-react"
+import { Clock, Loader2, Save } from "lucide-react"
 import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
@@ -39,7 +39,7 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
   { ticket, compact, onSaved },
   statusRef,
 ) {
-  const { can, ensure } = useAuth()
+  const { can } = useAuth()
   const allowed = can("devReview")
   const update = useUpdateDevReview()
 
@@ -63,7 +63,7 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
   const fieldId = `dev-${ticket.id}`
 
   const submit = handleSubmit(async (values) => {
-    if (!(await ensure("devReview"))) return
+    if (!allowed) return
     update.mutate({ id: ticket.id, ...values }, { onSuccess: () => onSaved?.() })
   })
 
@@ -125,15 +125,10 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
           <Clock className="size-3.5" aria-hidden />
           آخر تحديث: <span className="tabular">{formatDateTime(ticket.devUpdatedAt)}</span>
         </p>
-        {allowed ? (
+        {allowed && (
           <Button type="submit" disabled={update.isPending || !isDirty}>
             {update.isPending ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}
             حفظ المراجعة
-          </Button>
-        ) : (
-          <Button type="button" variant="outline" onClick={() => void ensure("devReview")}>
-            <Lock aria-hidden />
-            فتح صلاحية المبرمجين
           </Button>
         )}
       </div>

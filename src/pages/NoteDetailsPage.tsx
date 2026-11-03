@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { ArrowRight, BadgeCheck, CalendarDays, FileQuestion, Hash, ImageIcon, Loader2, Lock, MessageCircle, Trash2 } from "lucide-react"
+import { ArrowRight, BadgeCheck, CalendarDays, FileQuestion, Hash, ImageIcon, Loader2, MessageCircle, Trash2 } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ErrorState } from "@/components/common/ErrorState"
@@ -71,7 +71,7 @@ export function NoteDetailsPage() {
               <StatusBadge kind="approval" value={ticket.approval} />
               <StatusBadge kind="dev" value={ticket.devStatus} />
             </div>
-            <h1 className="text-[22px] leading-snug font-bold text-foreground sm:text-2xl">{ticket.name}</h1>
+            <h1 className="font-heading text-[24px] leading-relaxed font-bold text-foreground sm:text-[28px]">{ticket.name}</h1>
             <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="size-3.5" aria-hidden />
@@ -88,15 +88,16 @@ export function NoteDetailsPage() {
               <MessageCircle aria-hidden />
               مشاركة عبر واتساب
             </Button>
-            <Button
-              variant="outline"
-              className="text-danger hover:border-danger/40 hover:bg-[#fdf3f2] hover:text-danger"
-              onClick={() => void actions.remove(ticket, { onDeleted: () => navigate("/notes", { replace: true }) })}
-            >
-              <Trash2 aria-hidden />
-              حذف
-              {!can("delete") && <Lock className="size-3.5 opacity-70" aria-label="يتطلب صلاحية المدير" />}
-            </Button>
+            {can("delete") && (
+              <Button
+                variant="outline"
+                className="text-danger hover:border-danger/40 hover:bg-[#fdf3f2] hover:text-danger"
+                onClick={() => void actions.remove(ticket, { onDeleted: () => navigate("/notes", { replace: true }) })}
+              >
+                <Trash2 aria-hidden />
+                حذف
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -141,7 +142,7 @@ export function NoteDetailsPage() {
                     <span className="text-muted-foreground">— لم يُسجّل وقت التصديق</span>
                   )}
                 </p>
-              ) : (
+              ) : can("approve") ? (
                 <>
                   <p className="text-[13px] leading-6 text-muted-foreground">
                     بعد التصديق تُعتمد الملاحظة رسميًا وتنتقل لمتابعة فريق المبرمجين.
@@ -149,9 +150,10 @@ export function NoteDetailsPage() {
                   <Button onClick={() => void actions.approve(ticket)} disabled={approving} size="lg" className="w-full">
                     {approving ? <Loader2 className="animate-spin" aria-hidden /> : <BadgeCheck aria-hidden />}
                     تصديق الملاحظة
-                    {!can("approve") && <Lock className="size-3.5 opacity-80" aria-label="يتطلب كلمة مرور التصديق" />}
                   </Button>
                 </>
+              ) : (
+                <p className="text-[13px] leading-6 text-muted-foreground">الملاحظة بانتظار التصديق من صاحب الصلاحية.</p>
               )}
             </div>
           </Panel>
@@ -165,7 +167,13 @@ export function NoteDetailsPage() {
                 <StatusBadge kind="dev" value={ticket.devStatus} />
               </div>
               <div className="px-5 pb-5">
-                <DeveloperReviewForm ref={statusRef} ticket={ticket} />
+                {can("devReview") ? (
+                  <DeveloperReviewForm ref={statusRef} ticket={ticket} />
+                ) : (
+                  <p className="text-[13px] leading-6 text-muted-foreground">
+                    {ticket.devNotes?.trim() || "لا توجد ملاحظات من المبرمجين بعد."}
+                  </p>
+                )}
               </div>
             </section>
           </Panel>

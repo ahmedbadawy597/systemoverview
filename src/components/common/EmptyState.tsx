@@ -24,7 +24,7 @@ export function EmptyState({ icon: Icon, title, description, action, className, 
         <Icon className="size-5" strokeWidth={1.75} aria-hidden />
       </span>
       <div className="grid max-w-md gap-1">
-        <p className="text-[15px] font-bold text-foreground">{title}</p>
+        <p className="font-heading text-[17px] leading-relaxed font-bold text-foreground">{title}</p>
         {description && <p className="text-[13px] leading-6 text-muted-foreground">{description}</p>}
       </div>
       {action && <div className="mt-2 flex flex-wrap justify-center gap-2">{action}</div>}

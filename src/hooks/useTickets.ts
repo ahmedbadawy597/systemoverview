@@ -1,93 +1,99 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import type { TicketFilters } from "@/domain/stats"
 import type { DevReviewInput, NewTicketInput, Ticket } from "@/domain/ticket"
-import { ticketsApi } from "@/services/api/ticketsApi"
+import { ticketsApi, type TicketListQuery } from "@/services/api/ticketsApi"
 
 export const TICKETS_KEY = ["tickets"] as const
+export const TICKET_STATS_KEY = ["tickets", "stats"] as const
 
-const byNewest = (a: Ticket, b: Ticket) =>
-  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || Number(b.id) - Number(a.id)
+export function ticketsQueryKey(query: TicketListQuery) {
+  return [...TICKETS_KEY, "list", query] as const
+}
 
-export function useTickets() {
+export function useTicketList(query: TicketListQuery, enabled = true) {
   return useQuery({
-    queryKey: TICKETS_KEY,
-    queryFn: async () => (await ticketsApi.fetchTickets()).sort(byNewest),
-    staleTime: 30_000,
+    queryKey: ticketsQueryKey(query),
+    queryFn: () => ticketsApi.listTickets(query),
+    staleTime: 15_000,
+    enabled,
   })
 }
 
+export function useTicketStats(filters: Partial<TicketFilters> = {}, enabled = true) {
+  const query = {
+    q: filters.query?.trim() || undefined,
+    approval: filters.approval,
+    devStatus: filters.devStatus,
+    from: filters.from,
+    to: filters.to,
+  }
+  return useQuery({
+    queryKey: [...TICKET_STATS_KEY, query] as const,
+    queryFn: () => ticketsApi.fetchStats(query),
+    staleTime: 15_000,
+    enabled: enabled !== false,
+  })
+}
+
+/** Recent tickets helper for dashboard / search / notifications. */
+export function useTickets(limit = 50) {
+  const query = useTicketList({ page: 1, limit, sort: "createdAt", order: "desc" })
+  return {
+    ...query,
+    data: query.data?.items,
+  }
+}
+
 export function useTicket(id: string | undefined) {
-  const query = useTickets()
-  const ticket = id ? query.data?.find((t) => t.id === id) : undefined
-  return { ...query, ticket }
+  const query = useQuery({
+    queryKey: [...TICKETS_KEY, "one", id] as const,
+    queryFn: () => ticketsApi.getTicket(id!),
+    enabled: Boolean(id),
+    staleTime: 15_000,
+  })
+  return { ...query, ticket: query.data }
 }
 
 function errorMessage(error: unknown) {
   return error instanceof Error && error.message ? error.message : "حدث خطأ غير متوقع."
 }
 
-function usePatchCache() {
-  const client = useQueryClient()
-  return {
-    client,
-    patch(id: string, change: Partial<Ticket>) {
-      const previous = client.getQueryData<Ticket[]>(TICKETS_KEY)
-      client.setQueryData<Ticket[]>(TICKETS_KEY, (list) =>
-        list?.map((t) => (t.id === id ? { ...t, ...change } : t)),
-      )
-      return previous
-    },
-    restore(previous: Ticket[] | undefined) {
-      if (previous) client.setQueryData(TICKETS_KEY, previous)
-    },
-  }
+function invalidateTicketQueries(client: ReturnType<typeof useQueryClient>) {
+  void client.invalidateQueries({ queryKey: TICKETS_KEY })
+  void client.invalidateQueries({ queryKey: TICKET_STATS_KEY })
 }
 
 export function useAddTicket() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (input: NewTicketInput) => ticketsApi.addTicket(input),
-    onSuccess: (created) => {
-      if (created) {
-        client.setQueryData<Ticket[]>(TICKETS_KEY, (list) => [created, ...(list ?? []).filter((t) => t.id !== created.id)])
-      }
-      void client.invalidateQueries({ queryKey: TICKETS_KEY })
-    },
+    onSuccess: () => invalidateTicketQueries(client),
     onError: (error) => toast.error("تعذّر حفظ الملاحظة", { description: errorMessage(error) }),
   })
 }
 
 export function useApproveTicket() {
-  const cache = usePatchCache()
+  const client = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => ticketsApi.approveTicket(id),
-    onMutate: (id) => ({ previous: cache.patch(id, { approval: "approved", approvedAt: new Date().toISOString() }) }),
-    onSuccess: () => toast.success("تم تصديق الملاحظة"),
-    onError: (error, _id, context) => {
-      cache.restore(context?.previous)
-      toast.error("تعذّر تصديق الملاحظة", { description: errorMessage(error) })
+    onSuccess: () => {
+      toast.success("تم تصديق الملاحظة")
+      invalidateTicketQueries(client)
     },
-    onSettled: () => cache.client.invalidateQueries({ queryKey: TICKETS_KEY }),
+    onError: (error) => toast.error("تعذّر تصديق الملاحظة", { description: errorMessage(error) }),
   })
 }
 
 export function useUpdateDevReview() {
-  const cache = usePatchCache()
+  const client = useQueryClient()
   return useMutation({
     mutationFn: (input: DevReviewInput) => ticketsApi.updateDevReview(input),
-    onMutate: (input) => ({
-      previous: cache.patch(input.id, {
-        devStatus: input.devStatus,
-        devNotes: input.devNotes.trim(),
-        devUpdatedAt: new Date().toISOString(),
-      }),
-    }),
-    onSuccess: () => toast.success("تم حفظ مراجعة المبرمجين"),
-    onError: (error, _input, context) => {
-      cache.restore(context?.previous)
-      toast.error("تعذّر حفظ المراجعة", { description: errorMessage(error) })
+    onSuccess: () => {
+      toast.success("تم حفظ مراجعة المبرمجين")
+      invalidateTicketQueries(client)
     },
-    onSettled: () => cache.client.invalidateQueries({ queryKey: TICKETS_KEY }),
+    onError: (error) => toast.error("تعذّر حفظ المراجعة", { description: errorMessage(error) }),
   })
 }
 
@@ -95,16 +101,12 @@ export function useDeleteTicket() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => ticketsApi.deleteTicket(id),
-    onMutate: (id) => {
-      const previous = client.getQueryData<Ticket[]>(TICKETS_KEY)
-      client.setQueryData<Ticket[]>(TICKETS_KEY, (list) => list?.filter((t) => t.id !== id))
-      return { previous }
+    onSuccess: () => {
+      toast.success("تم حذف الملاحظة")
+      invalidateTicketQueries(client)
     },
-    onSuccess: () => toast.success("تم حذف الملاحظة"),
-    onError: (error, _id, context) => {
-      if (context?.previous) client.setQueryData(TICKETS_KEY, context.previous)
-      toast.error("تعذّر حذف الملاحظة", { description: errorMessage(error) })
-    },
-    onSettled: () => client.invalidateQueries({ queryKey: TICKETS_KEY }),
+    onError: (error) => toast.error("تعذّر حذف الملاحظة", { description: errorMessage(error) }),
   })
 }
+
+export type { Ticket }

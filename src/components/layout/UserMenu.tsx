@@ -1,24 +1,21 @@
-import { Check, ChevronDown, LogOut, Settings, ShieldCheck } from "lucide-react"
+import { ChevronDown, LogOut, Settings, ShieldCheck, Users } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { JOB_TITLES, roleLabels } from "@/domain/user"
 import { useAuth } from "@/services/auth/AuthProvider"
-import { ROLES, type ProtectedRole } from "@/services/auth/roles"
-import { toast } from "sonner"
-
-const SWITCHABLE: ProtectedRole[] = ["approver", "developer", "admin"]
+import { ROLES } from "@/services/auth/roles"
 
 export function RoleBadge() {
-  const { role } = useAuth()
-  if (!role) return null
-  const elevated = role !== "staff"
+  const { user } = useAuth()
+  if (!user) return null
+  const elevated = user.primaryRole !== "staff"
   return (
     <span
       className={
@@ -28,58 +25,51 @@ export function RoleBadge() {
       }
     >
       {elevated && <ShieldCheck className="size-3.5" aria-hidden />}
-      صلاحية: {ROLES[role].label}
+      {roleLabels(user.roles)}
     </span>
   )
 }
 
 export function UserMenu() {
-  const { role, signIn, signOut, elevate } = useAuth()
+  const { user, signOut, can } = useAuth()
   const navigate = useNavigate()
-  if (!role) return null
-  const def = ROLES[role]
-
-  async function switchTo(target: ProtectedRole) {
-    if (target === role) return
-    const ok = await elevate(target)
-    if (ok) toast.success(`تم التبديل إلى صلاحية «${ROLES[target].label}»`)
-  }
+  if (!user) return null
 
   return (
     <DropdownMenu dir="rtl">
       <DropdownMenuTrigger
         className="flex h-10 items-center gap-2 rounded-full ps-1 pe-2 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-ring"
-        aria-label={`قائمة المستخدم، الصلاحية الحالية ${def.label}`}
+        aria-label={`قائمة المستخدم، ${user.fullName}`}
       >
         <span className="flex size-8 items-center justify-center rounded-full bg-brand text-[13px] font-bold text-white">
-          {def.label.charAt(0)}
+          {user.fullName.charAt(0)}
         </span>
         <ChevronDown className="size-4 text-faint" aria-hidden />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64 p-1.5">
+      <DropdownMenuContent align="end" className="w-72 p-1.5">
         <DropdownMenuLabel className="grid gap-0.5 px-2 py-2">
-          <span className="text-[13px] font-bold text-foreground">صلاحية {def.label}</span>
-          <span className="text-xs leading-5 font-normal text-muted-foreground">{def.description}</span>
+          <span className="text-[13px] font-bold text-foreground">{user.fullName}</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            @{user.username} · {JOB_TITLES[user.jobTitle].label}
+          </span>
+          <span className="pt-1 text-xs leading-5 font-normal text-muted-foreground">
+            أدوار النظام: {roleLabels(user.roles)}
+          </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="px-2 pt-1.5 pb-1 text-xs font-semibold text-muted-foreground">تبديل الصلاحية</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={() => signIn("staff")} className="h-9">
-            <span className="flex-1">{ROLES.staff.label}</span>
-            {role === "staff" && <Check className="text-brand-btn" />}
+        {can("manageUsers") && (
+          <DropdownMenuItem onSelect={() => navigate("/users")} className="h-9">
+            <Users />
+            إدارة المستخدمين
           </DropdownMenuItem>
-          {SWITCHABLE.map((r) => (
-            <DropdownMenuItem key={r} onSelect={() => void switchTo(r)} className="h-9">
-              <span className="flex-1">{ROLES[r].label}</span>
-              {role === r ? <Check className="text-brand-btn" /> : <span className="text-[11px] text-muted-foreground">بكلمة مرور</span>}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate("/settings")} className="h-9">
-          <Settings />
-          الإعدادات
-        </DropdownMenuItem>
+        )}
+        {can("settings") && (
+          <DropdownMenuItem onSelect={() => navigate("/settings")} className="h-9">
+            <Settings />
+            الإعدادات
+          </DropdownMenuItem>
+        )}
+        {(can("manageUsers") || can("settings")) && <DropdownMenuSeparator />}
         <DropdownMenuItem
           variant="destructive"
           className="h-9"
@@ -91,6 +81,9 @@ export function UserMenu() {
           <LogOut />
           تسجيل الخروج
         </DropdownMenuItem>
+        <p className="px-2 pt-1 pb-1.5 text-[11px] leading-5 text-muted-foreground">
+          الصلاحية الأساسية: {ROLES[user.primaryRole].label}. لتغيير الأدوار اطلب من المدير.
+        </p>
       </DropdownMenuContent>
     </DropdownMenu>
   )

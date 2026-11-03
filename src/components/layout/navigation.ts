@@ -5,6 +5,7 @@ import {
   FileText,
   LayoutDashboard,
   Settings,
+  Users,
   Wrench,
   type LucideIcon,
 } from "lucide-react"
@@ -15,19 +16,22 @@ export interface NavItem {
   label: string
   icon: LucideIcon
   end?: boolean
-  /** Which queue count to show beside the label. */
+  /** Which ticket count to show beside the label. */
   count?: "pendingApproval" | "openDev"
+  /** Hide from sidebar when the account lacks this permission. */
   permission?: Permission
 }
 
 export const MAIN_NAV: NavItem[] = [
-  { to: "/", label: "الرئيسية", icon: LayoutDashboard, end: true },
-  { to: "/notes", label: "جميع الملاحظات", icon: ClipboardList, end: true },
-  { to: "/notes/new", label: "إضافة ملاحظة", icon: FilePlus2 },
-  { to: "/approval", label: "التصديق", icon: BadgeCheck, count: "pendingApproval" },
-  { to: "/developer", label: "مراجعة المبرمجين", icon: Wrench, count: "openDev" },
-  { to: "/reports", label: "التقارير", icon: FileText },
+  { to: "/", label: "الرئيسية", icon: LayoutDashboard, end: true, permission: "view" },
+  { to: "/notes", label: "جميع الملاحظات", icon: ClipboardList, end: true, permission: "view" },
+  { to: "/notes/new", label: "إضافة ملاحظة", icon: FilePlus2, permission: "create" },
+  { to: "/approval", label: "التصديق", icon: BadgeCheck, count: "pendingApproval", permission: "approve" },
+  { to: "/developer", label: "مراجعة المبرمجين", icon: Wrench, count: "openDev", permission: "devReview" },
+  { to: "/reports", label: "التقارير", icon: FileText, permission: "print" },
 ]
+
+export const USERS_NAV: NavItem = { to: "/users", label: "المستخدمون", icon: Users, permission: "manageUsers" }
 
 export const SETTINGS_NAV: NavItem = { to: "/settings", label: "الإعدادات", icon: Settings, permission: "settings" }
 
@@ -38,5 +42,6 @@ export const PAGE_TITLES: Record<string, string> = {
   "/approval": "التصديق",
   "/developer": "مراجعة المبرمجين",
   "/reports": "التقارير",
+  "/users": "إدارة المستخدمين",
   "/settings": "الإعدادات",
 }

@@ -1,17 +1,27 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { FileText, Search } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { StatusBadge } from "@/components/notes/StatusBadge"
-import { useTickets } from "@/hooks/useTickets"
-import { formatId, normalizeArabic } from "@/lib/format"
+import { useTicketList } from "@/hooks/useTickets"
+import { formatId } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export function SearchCommand({ className }: { className?: string }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const { data = [], isLoading } = useTickets()
   const navigate = useNavigate()
+  const { data, isLoading } = useTicketList(
+    {
+      page: 1,
+      limit: 8,
+      q: query.trim() || undefined,
+      sort: "createdAt",
+      order: "desc",
+    },
+    open,
+  )
+  const results = data?.items ?? []
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -23,12 +33,6 @@ export function SearchCommand({ className }: { className?: string }) {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [])
-
-  const results = useMemo(() => {
-    const q = normalizeArabic(query)
-    const list = q ? data.filter((t) => normalizeArabic(`${t.id} ${t.name} ${t.description}`).includes(q)) : data
-    return list.slice(0, 8)
-  }, [data, query])
 
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
 
@@ -63,7 +67,7 @@ export function SearchCommand({ className }: { className?: string }) {
       >
         <CommandInput placeholder="ابحث برقم أو اسم الملاحظة…" value={query} onValueChange={setQuery} />
         <CommandList className="max-h-[min(420px,60vh)]">
-          <CommandEmpty>{isLoading ? "جارٍ تحميل الملاحظات…" : "لا توجد ملاحظات مطابقة لبحثك."}</CommandEmpty>
+          <CommandEmpty>{isLoading ? "جارٍ البحث…" : "لا توجد ملاحظات مطابقة لبحثك."}</CommandEmpty>
           {results.length > 0 && (
             <CommandGroup heading={query ? "النتائج" : "أحدث الملاحظات"}>
               {results.map((t) => (
@@ -78,9 +82,11 @@ export function SearchCommand({ className }: { className?: string }) {
                   className="gap-3 py-2.5"
                 >
                   <FileText className="size-4 text-faint" aria-hidden />
-                  <span className="tabular w-12 flex-none text-xs text-muted-foreground">{formatId(t.id)}</span>
-                  <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                  <StatusBadge kind="approval" value={t.approval} className="hidden sm:inline-flex" />
+                  <span className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="truncate font-semibold text-foreground">{t.name}</span>
+                    <span className="tabular text-[11px] text-muted-foreground">#{formatId(t.id)}</span>
+                  </span>
+                  <StatusBadge kind="approval" value={t.approval} />
                 </CommandItem>
               ))}
             </CommandGroup>

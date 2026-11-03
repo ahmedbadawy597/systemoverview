@@ -1,4 +1,4 @@
-import { BadgeCheck, Eye, Lock, MessageCircle, MoreHorizontal, Trash2, Wrench } from "lucide-react"
+import { BadgeCheck, Eye, MessageCircle, MoreHorizontal, Trash2, Wrench } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,8 +15,13 @@ import { useNoteActions } from "./NoteActionsProvider"
 export function NoteActionsMenu({ ticket, hideView }: { ticket: Ticket; hideView?: boolean }) {
   const actions = useNoteActions()
   const { can } = useAuth()
-  const locked = (permission: Parameters<typeof can>[0]) =>
-    !can(permission) && <Lock className="ms-auto size-3.5 text-faint" aria-label="يتطلب كلمة مرور" />
+  const canApprove = can("approve")
+  const canReview = can("devReview")
+  const canDelete = can("delete")
+  const showApprove = canApprove && ticket.approval === "pending"
+  const showApprovedLabel = ticket.approval === "approved"
+  const hasDestructive = canDelete
+  const hasSecondary = showApprove || showApprovedLabel || canReview
 
   return (
     <DropdownMenu>
@@ -38,33 +43,37 @@ export function NoteActionsMenu({ ticket, hideView }: { ticket: Ticket; hideView
             عرض التفاصيل
           </DropdownMenuItem>
         )}
-        {ticket.approval === "pending" ? (
+        {showApprove && (
           <DropdownMenuItem className="h-9" onSelect={() => void actions.approve(ticket)}>
             <BadgeCheck />
             تصديق الملاحظة
-            {locked("approve")}
           </DropdownMenuItem>
-        ) : (
+        )}
+        {showApprovedLabel && (
           <DropdownMenuItem className="h-9" disabled>
             <BadgeCheck />
             تم التصديق
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem className="h-9" onSelect={() => void actions.review(ticket)}>
-          <Wrench />
-          مراجعة المبرمجين
-          {locked("devReview")}
-        </DropdownMenuItem>
+        {canReview && (
+          <DropdownMenuItem className="h-9" onSelect={() => void actions.review(ticket)}>
+            <Wrench />
+            مراجعة المبرمجين
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem className="h-9" onSelect={() => actions.share(ticket)}>
           <MessageCircle />
           مشاركة عبر واتساب
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" className="h-9" onSelect={() => void actions.remove(ticket)}>
-          <Trash2 />
-          حذف الملاحظة
-          {locked("delete")}
-        </DropdownMenuItem>
+        {hasDestructive && (
+          <>
+            {(hasSecondary || !hideView) && <DropdownMenuSeparator />}
+            <DropdownMenuItem variant="destructive" className="h-9" onSelect={() => void actions.remove(ticket)}>
+              <Trash2 />
+              حذف الملاحظة
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

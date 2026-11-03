@@ -21,24 +21,46 @@ interface NotesTableProps {
   empty?: ReactNode
   /** Reset to the first page when this value changes (e.g. the active filters). */
   resetKey?: string
+  /** Server-driven pagination. When `total` is set, rows are not sliced client-side. */
+  page?: number
+  total?: number
+  onPageChange?: (page: number) => void
 }
 
-export function NotesTable({ tickets, variant = "full", pageSize, loading, empty, resetKey }: NotesTableProps) {
+export function NotesTable({
+  tickets,
+  variant = "full",
+  pageSize,
+  loading,
+  empty,
+  resetKey,
+  page: controlledPage,
+  total,
+  onPageChange,
+}: NotesTableProps) {
   const [page, setPage] = useState(1)
   const [preview, setPreview] = useState<{ ticket: Ticket; index: number } | null>(null)
   const navigate = useNavigate()
   const full = variant === "full"
   const wide = useMediaQuery("(min-width: 1280px)")
   const withDescription = full && wide
+  const serverPaged = typeof total === "number" && typeof onPageChange === "function"
+  const activePage = serverPaged ? (controlledPage ?? 1) : page
 
-  useEffect(() => setPage(1), [resetKey])
-  const pages = pageSize ? Math.max(1, Math.ceil(tickets.length / pageSize)) : 1
   useEffect(() => {
-    if (page > pages) setPage(pages)
-  }, [page, pages])
+    if (!serverPaged) setPage(1)
+  }, [resetKey, serverPaged])
+  const pages = pageSize ? Math.max(1, Math.ceil((serverPaged ? total : tickets.length) / pageSize)) : 1
+  useEffect(() => {
+    if (!serverPaged && page > pages) setPage(pages)
+  }, [page, pages, serverPaged])
 
-  const visible = pageSize ? tickets.slice((page - 1) * pageSize, page * pageSize) : tickets
+  const visible = serverPaged || !pageSize ? tickets : tickets.slice((activePage - 1) * pageSize, activePage * pageSize)
   const open = (t: Ticket) => navigate(`/notes/${encodeURIComponent(t.id)}`)
+  const changePage = (next: number) => {
+    if (serverPaged) onPageChange?.(next)
+    else setPage(next)
+  }
 
   if (loading) return <TableSkeleton rows={pageSize ? Math.min(pageSize, 6) : 5} columns={full ? 7 : 6} />
   if (tickets.length === 0) return <div className="p-5">{empty}</div>
@@ -140,7 +162,14 @@ export function NotesTable({ tickets, variant = "full", pageSize, loading, empty
         ))}
       </ul>
 
-      {pageSize && <TablePagination page={page} pageSize={pageSize} total={tickets.length} onPageChange={setPage} />}
+      {pageSize && (
+        <TablePagination
+          page={activePage}
+          pageSize={pageSize}
+          total={serverPaged ? total : tickets.length}
+          onPageChange={changePage}
+        />
+      )}
 
       <ImageLightbox
         images={preview?.ticket.images ?? []}

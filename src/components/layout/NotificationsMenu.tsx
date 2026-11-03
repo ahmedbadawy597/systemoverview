@@ -4,27 +4,33 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DEV_LABELS } from "@/domain/ticket"
-import { useTickets } from "@/hooks/useTickets"
+import { useTicketList, useTicketStats } from "@/hooks/useTickets"
 import { formatId, formatNumber, formatRelative } from "@/lib/format"
+import { useAuth } from "@/services/auth/AuthProvider"
 
-const WEEK = 7 * 86_400_000
-
-/** Derived from the sheet: notes waiting for approval, and developer updates from the last 7 days. */
+/** Pending approvals + recent developer updates from the API. */
 export function NotificationsMenu() {
+  const { can } = useAuth()
+  const canApprove = can("approve")
+  const canReview = can("devReview")
   const [open, setOpen] = useState(false)
-  const { data = [] } = useTickets()
+  const { data: stats } = useTicketStats({}, can("view"))
+  const pendingQuery = useTicketList(
+    { page: 1, limit: 5, approval: "pending", sort: "createdAt", order: "asc" },
+    open && canApprove,
+  )
+  const updatesQuery = useTicketList(
+    { page: 1, limit: 5, sort: "devUpdatedAt", order: "desc" },
+    open && canReview,
+  )
 
-  const { pending, updates } = useMemo(() => {
-    const now = Date.now()
-    return {
-      pending: data.filter((t) => t.approval === "pending"),
-      updates: data
-        .filter((t) => t.devUpdatedAt && now - new Date(t.devUpdatedAt).getTime() < WEEK)
-        .sort((a, b) => new Date(b.devUpdatedAt!).getTime() - new Date(a.devUpdatedAt!).getTime()),
-    }
-  }, [data])
+  const pending = canApprove ? pendingQuery.data?.items ?? [] : []
+  const updates = useMemo(
+    () => (canReview ? (updatesQuery.data?.items ?? []).filter((t) => Boolean(t.devUpdatedAt)) : []),
+    [canReview, updatesQuery.data],
+  )
 
-  const count = pending.length
+  const count = canApprove ? (stats?.pending ?? pending.length) : 0
   const close = () => setOpen(false)
 
   return (

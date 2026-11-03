@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { BadgeCheck, ClipboardList, Eye, Hourglass, Printer, SearchCheck, SearchX, ShieldCheck } from "lucide-react"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ErrorState } from "@/components/common/ErrorState"
@@ -11,33 +11,82 @@ import { describeScope, PrintReport } from "@/components/report/PrintReport"
 import { usePrintReport } from "@/components/report/PrintReportProvider"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { applyFilters, computeStats, hasActiveFilters } from "@/domain/stats"
-import { useTickets } from "@/hooks/useTickets"
+import { PermissionEmpty } from "@/components/common/PermissionEmpty"
+import { hasActiveFilters } from "@/domain/stats"
+import { useTicketList, useTicketStats } from "@/hooks/useTickets"
 import { useUrlFilters } from "@/hooks/useUrlFilters"
 import { formatNumber } from "@/lib/format"
+import { useAuth } from "@/services/auth/AuthProvider"
+
+const PAGE_SIZE = 6
 
 export function ReportsPage() {
-  const { data, isLoading, error, refetch, isRefetching } = useTickets()
+  const { can } = useAuth()
+  const allowed = can("print")
   const { filters, setFilters, clear } = useUrlFilters()
   const { requestPrint } = usePrintReport()
   const [previewing, setPreviewing] = useState(false)
-  const all = useMemo(() => data ?? [], [data])
-  const filtered = useMemo(() => applyFilters(all, filters), [all, filters])
-  const stats = useMemo(() => computeStats(filtered), [filtered])
+  const [page, setPage] = useState(1)
+
+  const filterQuery = {
+    q: filters.query,
+    approval: filters.approval,
+    devStatus: filters.devStatus,
+    from: filters.from,
+    to: filters.to,
+  }
+
+  const statsQuery = useTicketStats(filters, allowed)
+  const listQuery = useTicketList(
+    {
+      page,
+      limit: PAGE_SIZE,
+      ...filterQuery,
+      sort: "createdAt",
+      order: "desc",
+    },
+    allowed,
+  )
+  const chartQuery = useTicketList(
+    {
+      page: 1,
+      limit: 100,
+      ...filterQuery,
+      sort: "createdAt",
+      order: "desc",
+    },
+    allowed,
+  )
+
+  const stats = statsQuery.data ?? { total: 0, pending: 0, approved: 0, notReviewed: 0, underStudy: 0, resolved: 0 }
+  const items = listQuery.data?.items ?? []
+  const total = listQuery.data?.total ?? 0
+  const chartTickets = chartQuery.data?.items ?? []
+  const isLoading = statsQuery.isLoading || listQuery.isLoading
+  const error = statsQuery.error || listQuery.error
   const share = (n: number) => (stats.total ? n / stats.total : 0)
+
+  if (!allowed) {
+    return (
+      <div className="grid gap-6">
+        <PageHeader title="التقارير" description="إحصاءات الملاحظات وإصدار تقرير رسمي من الخادم." />
+        <PermissionEmpty permission="print" />
+      </div>
+    )
+  }
 
   return (
     <div className="grid gap-6">
       <PageHeader
         title="التقارير"
-        description="إحصاءات الملاحظات وإصدار تقرير رسمي قابل للطباعة بمقاس A4."
+        description="إحصاءات الملاحظات وإصدار تقرير رسمي من الخادم."
         actions={
           <>
             <Button variant="outline" onClick={() => setPreviewing(true)} disabled={isLoading}>
               <Eye aria-hidden />
               معاينة التقرير
             </Button>
-            <Button onClick={() => requestPrint({ tickets: filtered, filters })} disabled={isLoading}>
+            <Button onClick={() => requestPrint({ filters })} disabled={isLoading}>
               <Printer aria-hidden />
               طباعة التقرير
             </Button>
@@ -45,14 +94,35 @@ export function ReportsPage() {
         }
       />
 
-      {error && <ErrorState error={error} onRetry={() => refetch()} retrying={isRefetching} />}
+      {error && (
+        <ErrorState
+          error={error}
+          onRetry={() => {
+            void statsQuery.refetch()
+            void listQuery.refetch()
+            void chartQuery.refetch()
+          }}
+          retrying={statsQuery.isRefetching || listQuery.isRefetching}
+        />
+      )}
 
       <Panel className="p-5">
-        <NoteFilters filters={filters} onChange={setFilters} onClear={clear} fields={["dates", "approval", "devStatus"]} />
+        <NoteFilters
+          filters={filters}
+          onChange={(patch) => {
+            setFilters(patch)
+            setPage(1)
+          }}
+          onClear={() => {
+            clear()
+            setPage(1)
+          }}
+          fields={["dates", "approval", "devStatus"]}
+        />
         <p className="mt-4 flex items-start gap-2 text-[13px] leading-6 text-muted-foreground">
           <ShieldCheck className="mt-1 size-4 flex-none text-gold" aria-hidden />
           <span>
-            نطاق التقرير: <span className="text-foreground">{describeScope(filters)}</span>. تتطلب الطباعة كلمة مرور المدير.
+            نطاق التقرير: <span className="text-foreground">{describeScope(filters)}</span>. الطباعة الرسمية تتم عبر الخادم لمن لديه صلاحية التقارير.
           </span>
         </p>
       </Panel>
@@ -69,7 +139,7 @@ export function ReportsPage() {
         <Panel>
           <PanelHeader
             title="الملاحظات المضافة شهريًا"
-            description="آخر ستة أشهر ضمن نطاق التقرير"
+            description="حتى ١٠٠ ملاحظة ضمن النطاق للرسم البياني"
             actions={
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
@@ -84,20 +154,23 @@ export function ReportsPage() {
             }
           />
           <div className="px-4 pb-5">
-            <MonthlyChart tickets={filtered} />
+            <MonthlyChart tickets={chartTickets} />
           </div>
         </Panel>
 
         <Panel className="overflow-hidden">
           <PanelHeader
             title="الملاحظات المشمولة في التقرير"
-            description={`${formatNumber(filtered.length)} ملاحظة${hasActiveFilters(filters) ? ` من ${formatNumber(all.length)}` : ""}`}
+            description={`${formatNumber(total)} ملاحظة${hasActiveFilters(filters) ? " ضمن النطاق" : ""}`}
           />
           <NotesTable
-            tickets={filtered}
+            tickets={items}
             variant="compact"
-            pageSize={6}
-            loading={isLoading}
+            pageSize={PAGE_SIZE}
+            page={page}
+            total={total}
+            onPageChange={setPage}
+            loading={listQuery.isLoading}
             resetKey={JSON.stringify(filters)}
             empty={
               <EmptyState
@@ -105,7 +178,13 @@ export function ReportsPage() {
                 title="لا توجد ملاحظات ضمن هذا النطاق"
                 description="عدّل التاريخ أو الحالات لإظهار ملاحظات في التقرير."
                 action={
-                  <Button variant="outline" onClick={clear}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      clear()
+                      setPage(1)
+                    }}
+                  >
                     مسح الفلاتر
                   </Button>
                 }
@@ -120,13 +199,13 @@ export function ReportsPage() {
           <DialogHeader className="flex-row items-center justify-between gap-4 border-b border-line-soft px-6 py-4 pe-14">
             <div className="grid gap-0.5">
               <DialogTitle>معاينة تقرير الملاحظات</DialogTitle>
-              <DialogDescription>كما سيظهر عند الطباعة على ورق A4</DialogDescription>
+              <DialogDescription>معاينة واجهة — الإصدار الرسمي من زر الطباعة عبر الخادم</DialogDescription>
             </div>
             <Button
               size="sm"
               onClick={() => {
                 setPreviewing(false)
-                requestPrint({ tickets: filtered, filters })
+                requestPrint({ filters })
               }}
             >
               <Printer aria-hidden />
@@ -135,7 +214,7 @@ export function ReportsPage() {
           </DialogHeader>
           <div className="overflow-y-auto bg-[#e9eeeb] p-4 sm:p-8" style={{ maxHeight: "calc(92dvh - 80px)" }}>
             <div className="mx-auto w-full max-w-[210mm] bg-white p-[8mm] shadow-float sm:p-[14mm]">
-              <PrintReport tickets={filtered} filters={filters} generatedAt={new Date().toISOString()} includeImages={false} />
+              <PrintReport tickets={chartTickets} filters={filters} generatedAt={new Date().toISOString()} includeImages={false} />
             </div>
           </div>
         </DialogContent>

@@ -1,4 +1,4 @@
-import { ChevronLeft, Menu, PanelRightClose, PanelRightOpen } from "lucide-react"
+import { ChevronLeft, Menu } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { Logo } from "@/components/brand/Logo"
@@ -28,12 +28,10 @@ export function useBreadcrumbs(): Crumb[] {
 }
 
 interface HeaderProps {
-  collapsed: boolean
-  onToggleCollapsed: () => void
   onOpenMobileNav: () => void
 }
 
-export function Header({ collapsed, onToggleCollapsed, onOpenMobileNav }: HeaderProps) {
+export function Header({ onOpenMobileNav }: HeaderProps) {
   const crumbs = useBreadcrumbs()
   const [scrolled, setScrolled] = useState(false)
 
@@ -62,16 +60,6 @@ export function Header({ collapsed, onToggleCollapsed, onOpenMobileNav }: Header
       >
         <Menu className="size-5" />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="hidden text-faint hover:bg-surface hover:text-foreground lg:inline-flex"
-        onClick={onToggleCollapsed}
-        aria-label={collapsed ? "توسيع القائمة الجانبية" : "طي القائمة الجانبية"}
-        aria-pressed={collapsed}
-      >
-        {collapsed ? <PanelRightOpen className="size-[19px]" /> : <PanelRightClose className="size-[19px]" />}
-      </Button>
 
       <Link to="/" className="flex-none lg:hidden" aria-label="الرئيسية">
         <Logo size={36} />
@@ -88,7 +76,7 @@ export function Header({ collapsed, onToggleCollapsed, onOpenMobileNav }: Header
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span aria-current="page" className="truncate text-[15px] font-bold text-foreground">
+                  <span aria-current="page" className="font-heading truncate text-[16px] leading-relaxed font-bold text-foreground">
                     {crumb.label}
                   </span>
                 )}

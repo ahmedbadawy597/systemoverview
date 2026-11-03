@@ -1,4 +1,3 @@
-import { useMemo } from "react"
 import { ArrowLeft, BadgeCheck, ClipboardList, FilePlus2, Hourglass, Printer, SearchCheck } from "lucide-react"
 import { Link } from "react-router-dom"
 import { EmptyState } from "@/components/common/EmptyState"
@@ -9,23 +8,36 @@ import { NotesTable } from "@/components/notes/NotesTable"
 import { usePrintReport } from "@/components/report/PrintReportProvider"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { computeStats, type TicketStats } from "@/domain/stats"
-import { useTickets } from "@/hooks/useTickets"
-import { formatNumber, formatPercent, formatRelative } from "@/lib/format"
+import { EMPTY_FILTERS, type TicketStats } from "@/domain/stats"
+import { useTicketList, useTicketStats } from "@/hooks/useTickets"
+import { formatNumber, formatPercent } from "@/lib/format"
+import { useAuth } from "@/services/auth/AuthProvider"
 
 export function DashboardPage() {
-  const { data, isLoading, error, refetch, isRefetching } = useTickets()
+  const { can } = useAuth()
+  const statsQuery = useTicketStats()
+  const recentQuery = useTicketList({ page: 1, limit: 8, sort: "createdAt", order: "desc" })
   const { requestPrint } = usePrintReport()
-  const tickets = useMemo(() => data ?? [], [data])
-  const stats = useMemo(() => computeStats(tickets), [tickets])
+  const canCreate = can("create")
+  const canApprove = can("approve")
+  const canReview = can("devReview")
+  const canPrint = can("print")
 
-  const finding = useMemo(() => {
-    const pending = tickets.filter((t) => t.approval === "pending")
-    if (!tickets.length) return "لا توجد ملاحظات مسجلة بعد."
-    if (!pending.length) return "جميع الملاحظات المسجلة تم تصديقها."
-    const oldest = pending.reduce((a, b) => (new Date(a.createdAt) < new Date(b.createdAt) ? a : b))
-    return `${formatNumber(pending.length)} ملاحظة بانتظار التصديق، أقدمها أضيفت ${formatRelative(oldest.createdAt)}.`
-  }, [tickets])
+  const stats = statsQuery.data ?? { total: 0, pending: 0, approved: 0, notReviewed: 0, underStudy: 0, resolved: 0 }
+  const tickets = recentQuery.data?.items ?? []
+  const isLoading = statsQuery.isLoading || recentQuery.isLoading
+  const error = statsQuery.error || recentQuery.error
+  const refetch = () => {
+    void statsQuery.refetch()
+    void recentQuery.refetch()
+  }
+  const isRefetching = statsQuery.isRefetching || recentQuery.isRefetching
+
+  const finding = !stats.total
+    ? "لا توجد ملاحظات مسجلة بعد."
+    : !stats.pending
+      ? "جميع الملاحظات المسجلة تم تصديقها."
+      : `${formatNumber(stats.pending)} ملاحظة بانتظار التصديق.`
 
   return (
     <div className="grid gap-6">
@@ -33,16 +45,18 @@ export function DashboardPage() {
         title="نظرة عامة على الملاحظات"
         description={isLoading ? "جارٍ تحميل البيانات من السجل…" : finding}
         actions={
-          <Button asChild>
-            <Link to="/notes/new">
-              <FilePlus2 aria-hidden />
-              إضافة ملاحظة
-            </Link>
-          </Button>
+          canCreate ? (
+            <Button asChild>
+              <Link to="/notes/new">
+                <FilePlus2 aria-hidden />
+                إضافة ملاحظة
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
 
-      {error && <ErrorState error={error} onRetry={() => refetch()} retrying={isRefetching} />}
+      {error && <ErrorState error={error} onRetry={refetch} retrying={isRefetching} />}
 
       <div className="stagger grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -61,7 +75,7 @@ export function DashboardPage() {
           share={stats.total ? stats.pending / stats.total : 0}
           icon={Hourglass}
           tone="gold"
-          to="/approval"
+          to={canApprove ? "/approval" : undefined}
           loading={isLoading}
         />
         <StatCard
@@ -71,7 +85,7 @@ export function DashboardPage() {
           share={stats.total ? stats.underStudy / stats.total : 0}
           icon={SearchCheck}
           tone="study"
-          to="/developer?status=under_study"
+          to={canReview ? "/developer?status=under_study" : undefined}
           loading={isLoading}
         />
         <StatCard
@@ -81,7 +95,7 @@ export function DashboardPage() {
           share={stats.total ? stats.resolved / stats.total : 0}
           icon={BadgeCheck}
           tone="resolved"
-          to="/developer?status=resolved"
+          to={canReview ? "/developer?status=resolved" : undefined}
           loading={isLoading}
         />
       </div>
@@ -90,7 +104,7 @@ export function DashboardPage() {
         <Panel className="overflow-hidden">
           <PanelHeader
             title="أحدث الملاحظات"
-            description={isLoading ? undefined : `آخر ${formatNumber(Math.min(8, tickets.length))} من ${formatNumber(tickets.length)} ملاحظة`}
+            description={isLoading ? undefined : `آخر ${formatNumber(tickets.length)} ملاحظة`}
             actions={
               <Button asChild variant="ghost" size="sm" className="text-brand-btn hover:text-brand">
                 <Link to="/notes">
@@ -101,7 +115,7 @@ export function DashboardPage() {
             }
           />
           <NotesTable
-            tickets={tickets.slice(0, 8)}
+            tickets={tickets}
             variant="compact"
             loading={isLoading}
             empty={
@@ -110,9 +124,11 @@ export function DashboardPage() {
                 title="لا توجد ملاحظات بعد"
                 description="ابدأ بتسجيل أول ملاحظة لتظهر هنا مع حالتها."
                 action={
-                  <Button asChild>
-                    <Link to="/notes/new">إضافة ملاحظة</Link>
-                  </Button>
+                  canCreate ? (
+                    <Button asChild>
+                      <Link to="/notes/new">إضافة ملاحظة</Link>
+                    </Button>
+                  ) : undefined
                 }
               />
             }
@@ -128,21 +144,27 @@ export function DashboardPage() {
           <Panel>
             <PanelHeader title="إجراءات سريعة" />
             <div className="grid gap-2 px-5 pb-5">
-              <QuickAction to="/notes/new" icon={FilePlus2} label="إضافة ملاحظة" hint="تسجيل ملاحظة جديدة مع الصور" primary />
-              <QuickAction to="/approval" icon={BadgeCheck} label="مراجعة الملاحظات" hint={`${formatNumber(stats.pending)} بانتظار التصديق`} />
-              <button
-                type="button"
-                onClick={() => requestPrint({ tickets })}
-                disabled={isLoading}
-                className="group flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-start transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-btn/30 hover:shadow-card active:translate-y-0 disabled:opacity-60"
-              >
-                <Printer className="size-[18px] flex-none text-brand" strokeWidth={1.75} aria-hidden />
-                <span className="grid flex-1">
-                  <span className="text-[14px] font-bold text-foreground">طباعة التقرير</span>
-                  <span className="text-xs text-muted-foreground">تقرير A4 بكل الملاحظات · للمدير</span>
-                </span>
-                <ArrowLeft className="size-4 text-faint transition-transform group-hover:-translate-x-1 duration-200" aria-hidden />
-              </button>
+              {canCreate && (
+                <QuickAction to="/notes/new" icon={FilePlus2} label="إضافة ملاحظة" hint="تسجيل ملاحظة جديدة مع الصور" primary />
+              )}
+              {canApprove && (
+                <QuickAction to="/approval" icon={BadgeCheck} label="مراجعة الملاحظات" hint={`${formatNumber(stats.pending)} بانتظار التصديق`} />
+              )}
+              {canPrint && (
+                <button
+                  type="button"
+                  onClick={() => requestPrint({ filters: EMPTY_FILTERS })}
+                  disabled={isLoading}
+                  className="group flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-start transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-btn/30 hover:shadow-card active:translate-y-0 disabled:opacity-60"
+                >
+                  <Printer className="size-[18px] flex-none text-brand" strokeWidth={1.75} aria-hidden />
+                  <span className="grid flex-1">
+                    <span className="text-[14px] font-bold text-foreground">طباعة التقرير</span>
+                    <span className="text-xs text-muted-foreground">تقرير رسمي من الخادم</span>
+                  </span>
+                  <ArrowLeft className="size-4 text-faint transition-transform group-hover:-translate-x-1 duration-200" aria-hidden />
+                </button>
+              )}
             </div>
           </Panel>
         </div>

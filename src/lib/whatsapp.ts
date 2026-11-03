@@ -1,19 +1,36 @@
 import { APPROVAL_LABELS, DEV_LABELS, type Ticket } from "@/domain/ticket"
-import { formatId } from "./format"
+import { formatDate, formatId, formatNumber } from "./format"
+
+const LINE = "────────────────────"
 
 export function buildWhatsAppMessage(ticket: Ticket) {
-  return [
-    "ملاحظة جديدة",
+  const imageCount = ticket.images.length
+  const lines = [
+    "*وزارة الأوقاف المصرية*",
+    "*نظام إدارة الملاحظات*",
+    LINE,
+    "*ملاحظة جديدة*",
     "",
-    `رقم الملاحظة: ${formatId(ticket.id)}`,
-    `اسم الملاحظة: ${ticket.name}`,
+    `• *رقم الملاحظة:* ${formatId(ticket.id)}`,
+    `• *اسم الملاحظة:* ${ticket.name}`,
+    `• *تاريخ الإضافة:* ${formatDate(ticket.createdAt)}`,
+    imageCount > 0 ? `• *المرفقات:* ${formatNumber(imageCount)} صورة` : null,
     "",
-    "الوصف:",
-    ticket.description || "—",
+    "*الوصف*",
+    ticket.description?.trim() || "—",
     "",
-    `حالة التصديق: ${APPROVAL_LABELS[ticket.approval]}`,
-    `حالة المبرمجين: ${DEV_LABELS[ticket.devStatus]}`,
-  ].join("\n")
+    "*الحالة*",
+    `• *التصديق:* ${APPROVAL_LABELS[ticket.approval]}`,
+    `• *مراجعة المبرمجين:* ${DEV_LABELS[ticket.devStatus]}`,
+  ]
+
+  if (ticket.devNotes?.trim()) {
+    lines.push("", "*ملاحظات المبرمجين*", ticket.devNotes.trim())
+  }
+
+  lines.push(LINE, "_رسالة تلقائية من نظام إدارة الملاحظات_")
+
+  return lines.filter((line): line is string => line !== null).join("\n")
 }
 
 export function buildWhatsAppUrl(ticket: Ticket) {
