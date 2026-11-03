@@ -6,12 +6,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/services/auth/AuthProvider"
 
-const DEMO_ACCOUNTS = [
-  { username: "AdminAwkaf", password: "Admin@123", title: "مدير النظام — كل الصلاحيات" },
-  { username: "AssistantAwkaf", password: "Assistant@123", title: "مساعد — تصديق + مبرمجين" },
-  { username: "OsamaElazhary", password: "P@$$w0rd", title: "وزير — لوحة الوزير فقط" },
-]
-
 export function LoginPage() {
   const { login } = useAuth()
   const [username, setUsername] = useState("")
@@ -102,28 +96,6 @@ export function LoginPage() {
               <ArrowLeft aria-hidden />
             </Button>
           </form>
-
-          <div className="grid gap-2 rounded-xl border border-dashed border-line bg-surface-soft/60 p-4">
-            <p className="text-[12px] font-bold text-muted-foreground">حسابات تجريبية (حتى ربط الخادم)</p>
-            <ul className="grid gap-1.5">
-              {DEMO_ACCOUNTS.map((account) => (
-                <li key={account.username}>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-start text-[12.5px] transition-colors hover:bg-surface"
-                    onClick={() => {
-                      setUsername(account.username)
-                      setPassword(account.password)
-                      setError(null)
-                    }}
-                  >
-                    <span className="font-semibold text-foreground">{account.title}</span>
-                    <span className="tabular text-muted-foreground">{account.username}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </main>
 
