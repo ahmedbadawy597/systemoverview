@@ -1,0 +1,120 @@
+name: Safe Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+concurrency:
+  group: deploy-frontend2
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lowercase owner
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/minister-frontend2:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/minister-frontend2:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          GH_USER: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          timeout: 60s
+          command_timeout: 20m
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: GH_USER,GH_TOKEN
+          script: |
+            set -eo pipefail
+            exec 9>/tmp/minister-deploy.lock
+            flock -w 900 9
+            cd /root/Minister-Dashboard
+
+            SERVICE=frontend2
+            REPO=ghcr.io/ahmedbadawy597/minister-frontend2
+
+            # 1) علّم الـ image الحالي للـ rollback (مش بيوقف الـ deploy لو فشل)
+            OLD_ID=""
+            docker tag $REPO:latest $REPO:rollback 2>/dev/null && OLD_ID=ok || true
+            echo "previous image: ${OLD_ID:-none}"
+
+            # 2) pull الجديد
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin
+            docker compose pull $SERVICE
+            docker logout ghcr.io
+
+            # 3) شغّل الجديد
+            docker compose up -d --no-build --force-recreate --no-deps $SERVICE
+
+            # 4) health check
+            ok=0
+            for i in $(seq 1 20); do
+              if docker compose exec -T $SERVICE wget -q -O /dev/null http://127.0.0.1/; then ok=1; break; fi
+              sleep 3
+            done
+
+            # 5) rollback لو فشل
+            if [ "$ok" != "1" ]; then
+              echo "DEPLOY FAILED. Logs:"
+              docker compose logs --tail 60 $SERVICE || true
+              if [ -n "$OLD_ID" ]; then
+                echo "Rolling back to previous image..."
+                docker tag $REPO:rollback $REPO:latest
+                docker compose up -d --no-build --force-recreate --no-deps $SERVICE
+                echo "Rolled back."
+              fi
+              exit 1
+            fi
+
+            echo "Deploy OK"
+            docker image prune -f
+
+  report:
+    needs: [build, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          {
+            echo "## Deploy Report"
+            echo "| Job | Result |"
+            echo "|---|---|"
+            echo "| Build & Push | ${{ needs.build.result }} |"
+            echo "| Deploy | ${{ needs.deploy.result }} |"
+          } >> $GITHUB_STEP_SUMMARY
