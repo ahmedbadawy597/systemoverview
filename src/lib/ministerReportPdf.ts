@@ -49,16 +49,16 @@ export function openMinisterReportPdf(report: MinisterReportPdfInput) {
   <title>${escapeHtml(report.title)} — وزارة الأوقاف المصرية</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Aref+Ruqaa:wght@400;700&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
   <style>
     @page { size: A4 portrait; margin: 16mm 14mm 18mm; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Cairo, "Noto Kufi Arabic", Tahoma, sans-serif;
+      font-family: Amiri, "Times New Roman", "Traditional Arabic", serif;
       color: #1e2939;
       background: #edf1ef;
-      line-height: 1.7;
+      line-height: 1.75;
     }
     .toolbar {
       position: sticky;
@@ -110,22 +110,22 @@ export function openMinisterReportPdf(report: MinisterReportPdfInput) {
       display: block;
     }
     .org {
-      font-family: "Aref Ruqaa", Amiri, serif;
+      font-family: Amiri, "Times New Roman", "Traditional Arabic", serif;
       text-align: center;
     }
-    .org .country { font-size: 17pt; font-weight: 700; color: #0f3a32; margin: 0; line-height: 1.5; }
-    .org .ministry { font-size: 15pt; font-weight: 700; color: #14533d; margin: 2px 0 0; line-height: 1.5; }
-    .org .system { font-size: 11pt; color: #5c6863; margin: 4px 0 0; font-family: Cairo, sans-serif; }
+    .org .country { font-size: 17pt; font-weight: 700; color: #0f3a32; margin: 0; line-height: 1.55; }
+    .org .ministry { font-size: 15pt; font-weight: 700; color: #14533d; margin: 2px 0 0; line-height: 1.55; }
+    .org .system { font-size: 11pt; color: #5c6863; margin: 4px 0 0; font-family: Amiri, serif; }
     .meta { text-align: start; font-size: 9pt; color: #5c6863; }
     .meta strong { display: block; color: #1e2939; font-size: 10.5pt; margin-bottom: 4px; }
     .title {
       margin: 18px 0 8px;
       text-align: center;
-      font-family: "Aref Ruqaa", Amiri, serif;
+      font-family: Amiri, "Times New Roman", "Traditional Arabic", serif;
       font-size: 24pt;
       font-weight: 700;
       color: #0f3a32;
-      line-height: 1.45;
+      line-height: 1.55;
     }
     .badges {
       display: flex;

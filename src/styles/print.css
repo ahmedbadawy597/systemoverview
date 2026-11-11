@@ -9,7 +9,7 @@
 
     @bottom-center {
       content: "صفحة " counter(page) " من " counter(pages);
-      font-family: "Cairo", sans-serif;
+      font-family: "Amiri", "Times New Roman", serif;
       font-size: 8.5pt;
       color: #333;
     }
@@ -28,9 +28,9 @@
   .print-root {
     display: block;
     direction: rtl;
-    font-family: "Cairo", "Segoe UI", Tahoma, sans-serif;
-    font-size: 10pt;
-    line-height: 1.6;
+    font-family: "Amiri", "Times New Roman", "Traditional Arabic", serif;
+    font-size: 11pt;
+    line-height: 1.75;
     color: #000;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -42,9 +42,9 @@
   direction: rtl;
   color: #000;
   background: #fff;
-  font-family: "Cairo", "Segoe UI", Tahoma, sans-serif;
-  font-size: 10pt;
-  line-height: 1.6;
+  font-family: "Amiri", "Times New Roman", "Traditional Arabic", serif;
+  font-size: 11pt;
+  line-height: 1.75;
 }
 
 .report-header {
@@ -64,8 +64,8 @@
 
 .report-org {
   text-align: center;
-  font-family: "Aref Ruqaa", "Amiri", "Scheherazade New", serif;
-  line-height: 1.45;
+  font-family: "Amiri", "Times New Roman", "Traditional Arabic", serif;
+  line-height: 1.55;
 }
 
 .report-org .org-country {
@@ -103,7 +103,7 @@
 .report-title {
   margin: 6mm 0 1.5mm;
   text-align: center;
-  font-family: "Aref Ruqaa", "Amiri", "Scheherazade New", serif;
+  font-family: "Amiri", "Times New Roman", "Traditional Arabic", serif;
   font-size: 22pt;
   font-weight: 700;
   color: #0f3a32;
@@ -118,7 +118,7 @@
 
 .report-section-title {
   margin: 6mm 0 2.5mm;
-  font-family: "Aref Ruqaa", "Amiri", "Scheherazade New", serif;
+  font-family: "Amiri", "Times New Roman", "Traditional Arabic", serif;
   font-size: 13pt;
   font-weight: 700;
   color: #0f3a32;

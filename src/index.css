@@ -84,11 +84,11 @@
 }
 
 @theme inline {
-  --font-sans: "Cairo", "Noto Kufi Arabic", "Segoe UI", Tahoma, sans-serif;
-  /* Calligraphic display face for titles across the whole app. */
-  --font-heading: "Aref Ruqaa", "Amiri", "Scheherazade New", "Times New Roman", serif;
-  --font-formal: "Aref Ruqaa", "Amiri", "Scheherazade New", "Times New Roman", serif;
-  --font-decorative: "Aref Ruqaa", "Scheherazade New", "Amiri", serif;
+  /* Single professional Arabic face across UI, headings, and reports. */
+  --font-sans: "Amiri", "Times New Roman", "Traditional Arabic", serif;
+  --font-heading: "Amiri", "Times New Roman", "Traditional Arabic", serif;
+  --font-formal: "Amiri", "Times New Roman", "Traditional Arabic", serif;
+  --font-decorative: "Amiri", "Times New Roman", "Traditional Arabic", serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -232,16 +232,21 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-size: 14px;
-    line-height: 1.65;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.75;
+    letter-spacing: 0;
     text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1;
   }
   h1,
   h2,
   h3,
   .font-heading {
     font-family: var(--font-heading);
-    line-height: 1.45;
+    font-weight: 700;
+    line-height: 1.55;
+    letter-spacing: 0;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {

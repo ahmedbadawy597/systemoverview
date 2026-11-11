@@ -41,7 +41,7 @@ export function MonthlyChart({ tickets, months = 6 }: MonthlyChartProps) {
             dataKey="label"
             tickLine={false}
             axisLine={{ stroke: "#bec9c3" }}
-            tick={{ fill: "#5c6863", fontSize: 12, fontFamily: "Cairo" }}
+            tick={{ fill: "#5c6863", fontSize: 13, fontFamily: "Amiri" }}
           />
           <YAxis
             orientation="right"
@@ -52,7 +52,7 @@ export function MonthlyChart({ tickets, months = 6 }: MonthlyChartProps) {
             axisLine={false}
             width={28}
             tickFormatter={(v: number) => formatNumber(v)}
-            tick={{ fill: "#5c6863", fontSize: 12, fontFamily: "Cairo" }}
+            tick={{ fill: "#5c6863", fontSize: 13, fontFamily: "Amiri" }}
           />
           <Tooltip
             cursor={{ fill: "rgba(20,83,61,0.05)" }}
