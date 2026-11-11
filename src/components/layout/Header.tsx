@@ -20,6 +20,9 @@ export function useBreadcrumbs(): Crumb[] {
   if (pathname === "/") return [{ label: "الرئيسية" }]
   const home: Crumb = { label: "الرئيسية", to: "/" }
   if (pathname === "/notes/new") return [home, { label: "جميع الملاحظات", to: "/notes" }, { label: "إضافة ملاحظة" }]
+  if (pathname === "/apps/new") return [home, { label: "التطبيقات", to: "/apps" }, { label: "إضافة تطبيق" }]
+  const appEdit = pathname.match(/^\/apps\/([^/]+)\/edit$/)
+  if (appEdit) return [home, { label: "التطبيقات", to: "/apps" }, { label: "تعديل التطبيق" }]
   const detail = pathname.match(/^\/notes\/([^/]+)$/)
   if (detail) {
     return [home, { label: "جميع الملاحظات", to: "/notes" }, { label: `ملاحظة رقم ${formatId(decodeURIComponent(detail[1]))}` }]

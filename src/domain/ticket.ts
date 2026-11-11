@@ -5,6 +5,10 @@ export interface Ticket {
   id: string
   name: string
   description: string
+  /** Linked workspace app when the note is about a specific system. */
+  appId: string | null
+  /** Resolved app display name (from catalog). */
+  appName: string | null
   /** Image URLs or data URLs, as stored by the backend. */
   images: string[]
   /** ISO 8601 timestamp. */
@@ -19,6 +23,7 @@ export interface Ticket {
 export interface NewTicketInput {
   name: string
   description: string
+  appId?: string | null
   /** JPEG data URLs compressed in the browser. */
   images: string[]
 }

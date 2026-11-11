@@ -14,6 +14,12 @@ interface AuthContextValue {
   login: (username: string, password: string) => Promise<{ ok: true } | { ok: false; reason: "invalid" | "inactive" }>
   signOut: () => void
   can: (permission: Permission) => boolean
+  /** Browse apps dashboard (published cards) — any logged-in role with view. */
+  canViewApps: boolean
+  /** Create/edit/credentials: assistant job title or system admin. */
+  canManageApps: boolean
+  /** Publish/unpublish to minister dashboard — assistant job title only. */
+  canPublishApps: boolean
   /** Resolves true if the logged-in account already has the permission; otherwise shows a toast. */
   ensure: (permission: Permission) => Promise<boolean>
   refreshUser: () => Promise<void>
@@ -73,17 +79,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  const can = useCallback((permission: Permission) => !!user?.permissions.includes(permission), [user])
+  const canViewApps = Boolean(user?.permissions.includes("view"))
+  const canManageApps = Boolean(
+    user && (user.jobTitle === "assistant" || user.roles.includes("admin")),
+  )
+  const canPublishApps = user?.jobTitle === "assistant"
+
+  const can = useCallback(
+    (permission: Permission) => {
+      if (!user) return false
+      if (permission === "manageApps") return canManageApps
+      return user.permissions.includes(permission)
+    },
+    [user, canManageApps],
+  )
 
   const ensure = useCallback(
     async (permission: Permission) => {
-      if (user?.permissions.includes(permission)) return true
+      if (can(permission)) return true
       toast.error("لا تملك صلاحية هذا الإجراء", {
         description: `يتطلب صلاحية «${PERMISSION_LABELS[permission]}». اطلب من المدير تعيين الدور المناسب لحسابك.`,
       })
       return false
     },
-    [user],
+    [can],
   )
 
   const value = useMemo<AuthContextValue>(
@@ -94,10 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       signOut,
       can,
+      canViewApps,
+      canManageApps,
+      canPublishApps,
       ensure,
       refreshUser,
     }),
-    [user, loading, login, signOut, can, ensure, refreshUser],
+    [user, loading, login, signOut, can, canViewApps, canManageApps, canPublishApps, ensure, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

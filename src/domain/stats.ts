@@ -27,15 +27,31 @@ export interface TicketFilters {
   query: string
   approval: ApprovalStatus | "all"
   devStatus: DevStatus | "all"
+  /** Linked app id, "none" for unlinked notes, or "all". */
+  appId: string
   /** yyyy-mm-dd, inclusive, local time */
   from: string
   to: string
 }
 
-export const EMPTY_FILTERS: TicketFilters = { query: "", approval: "all", devStatus: "all", from: "", to: "" }
+export const EMPTY_FILTERS: TicketFilters = {
+  query: "",
+  approval: "all",
+  devStatus: "all",
+  appId: "all",
+  from: "",
+  to: "",
+}
 
 export function hasActiveFilters(f: TicketFilters) {
-  return Boolean(f.query.trim() || f.approval !== "all" || f.devStatus !== "all" || f.from || f.to)
+  return Boolean(
+    f.query.trim() ||
+      f.approval !== "all" ||
+      f.devStatus !== "all" ||
+      (f.appId && f.appId !== "all") ||
+      f.from ||
+      f.to,
+  )
 }
 
 function dayStart(value: string) {
@@ -50,11 +66,20 @@ export function applyFilters(tickets: Ticket[], f: TicketFilters): Ticket[] {
   return tickets.filter((t) => {
     if (f.approval !== "all" && t.approval !== f.approval) return false
     if (f.devStatus !== "all" && t.devStatus !== f.devStatus) return false
+    if (f.appId && f.appId !== "all") {
+      if (f.appId === "none") {
+        if (t.appId) return false
+      } else if (t.appId !== f.appId) {
+        return false
+      }
+    }
     const created = new Date(t.createdAt).getTime()
     if (from !== null && created < from) return false
     if (to !== null && created >= to) return false
     if (q) {
-      const haystack = normalizeArabic(`${t.id} ${t.name} ${t.description} ${t.devNotes}`)
+      const haystack = normalizeArabic(
+        `${t.id} ${t.name} ${t.description} ${t.devNotes} ${t.appName ?? ""}`,
+      )
       if (!haystack.includes(q)) return false
     }
     return true

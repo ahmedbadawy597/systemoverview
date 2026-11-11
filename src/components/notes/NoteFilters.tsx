@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react"
-import { CalendarDays, FilterX, Search } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { AppWindow, CalendarDays, FilterX, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { hasActiveFilters, type TicketFilters } from "@/domain/stats"
 import { APPROVAL_LABELS, APPROVAL_ORDER, DEV_LABELS, DEV_ORDER } from "@/domain/ticket"
+import { useAppsList } from "@/hooks/useApps"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/services/auth/AuthProvider"
 
-type FilterField = "query" | "approval" | "devStatus" | "dates"
+type FilterField = "query" | "approval" | "devStatus" | "app" | "dates"
 
 interface NoteFiltersProps {
   filters: TicketFilters
@@ -23,10 +25,13 @@ export function NoteFilters({
   filters,
   onChange,
   onClear,
-  fields = ["query", "approval", "devStatus", "dates"],
+  fields = ["query", "app", "approval", "devStatus", "dates"],
   searchPlaceholder = "ابحث باسم الملاحظة أو وصفها أو رقمها…",
   className,
 }: NoteFiltersProps) {
+  const { canViewApps } = useAuth()
+  const appsQuery = useAppsList({ page: 1, limit: 100, status: "published" }, canViewApps && fields.includes("app"))
+  const apps = useMemo(() => appsQuery.data?.items ?? [], [appsQuery.data])
   const [query, setQuery] = useState(filters.query)
 
   useEffect(() => setQuery(filters.query), [filters.query])
@@ -61,6 +66,29 @@ export function NoteFilters({
       )}
 
       <div className="flex flex-wrap items-end gap-3 max-sm:w-full">
+        {show("app") && canViewApps && (
+          <div className="grid min-w-[180px] flex-1 gap-1.5 sm:flex-none">
+            <Label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground" id="filter-app-label">
+              <AppWindow className="size-3.5" aria-hidden />
+              التطبيق
+            </Label>
+            <Select value={filters.appId || "all"} onValueChange={(v) => onChange({ appId: v })}>
+              <SelectTrigger className="w-full sm:w-[200px]" aria-labelledby="filter-app-label">
+                <SelectValue placeholder="كل التطبيقات" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="all">كل التطبيقات</SelectItem>
+                <SelectItem value="none">بدون تطبيق مرتبط</SelectItem>
+                {apps.map((app) => (
+                  <SelectItem key={app.id} value={app.id}>
+                    {app.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {show("approval") && (
           <div className="grid min-w-[160px] flex-1 gap-1.5 sm:flex-none">
             <Label className="text-xs font-semibold text-muted-foreground" id="filter-approval-label">

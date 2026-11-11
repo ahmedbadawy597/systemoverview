@@ -8,7 +8,7 @@ import { useTicketStats } from "@/hooks/useTickets"
 import { formatNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/services/auth/AuthProvider"
-import { MAIN_NAV, SETTINGS_NAV, USERS_NAV, type NavItem } from "./navigation"
+import { APPS_NAV, CREDENTIALS_NAV, MAIN_NAV, SETTINGS_NAV, USERS_NAV, type NavItem } from "./navigation"
 
 interface SidebarProps {
   collapsed?: boolean
@@ -20,17 +20,22 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggleCollapsed, onNavigate, className }: SidebarProps) {
   const { data: stats } = useTicketStats()
-  const { user, signOut, can } = useAuth()
+  const { user, signOut, can, canViewApps, canManageApps } = useAuth()
   const navigate = useNavigate()
   const counts = {
     pendingApproval: stats?.pending ?? 0,
     openDev: stats ? stats.notReviewed + stats.underStudy : 0,
   }
 
-  const mainItems = MAIN_NAV.filter((item) => !item.permission || can(item.permission))
-  const adminItems = [can("manageUsers") ? USERS_NAV : null, can("settings") ? SETTINGS_NAV : null].filter(
-    Boolean,
-  ) as NavItem[]
+  const mainItems = [
+    ...MAIN_NAV.filter((item) => !item.permission || can(item.permission)),
+    ...(canViewApps ? [APPS_NAV] : []),
+  ]
+  const adminItems = [
+    canManageApps ? CREDENTIALS_NAV : null,
+    can("manageUsers") ? USERS_NAV : null,
+    can("settings") ? SETTINGS_NAV : null,
+  ].filter(Boolean) as NavItem[]
 
   return (
     <aside

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { ArrowRight, BadgeCheck, CalendarDays, FileQuestion, Hash, ImageIcon, Loader2, MessageCircle, Trash2 } from "lucide-react"
+import { AppWindow, ArrowRight, BadgeCheck, CalendarDays, FileQuestion, Hash, ImageIcon, Loader2, MessageCircle, Trash2 } from "lucide-react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ErrorState } from "@/components/common/ErrorState"
@@ -81,6 +81,12 @@ export function NoteDetailsPage() {
                 <ImageIcon className="size-3.5" aria-hidden />
                 {ticket.images.length ? `${formatNumber(ticket.images.length)} صورة مرفقة` : "بدون صور"}
               </span>
+              {ticket.appName && (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-surface-tint px-2 py-0.5 text-[12px] font-semibold text-brand ring-1 ring-brand/15">
+                  <AppWindow className="size-3.5" aria-hidden />
+                  {ticket.appName}
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-none flex-wrap gap-2">

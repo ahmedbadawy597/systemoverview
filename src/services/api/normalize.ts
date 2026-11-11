@@ -14,6 +14,7 @@ const ROW_COLUMNS = [
   "id",
   "name",
   "description",
+  "appId",
   "images",
   "createdAt",
   "approval",
@@ -27,6 +28,7 @@ const FIELD_ALIASES: Record<(typeof ROW_COLUMNS)[number], string[]> = {
   id: ["id", "ID", "Id", "ticketId", "رقم", "رقم الملاحظة"],
   name: ["name", "title", "اسم", "اسم الملاحظة", "العنوان"],
   description: ["description", "desc", "details", "وصف", "الوصف", "وصف الملاحظة"],
+  appId: ["appId", "app_id", "applicationId", "التطبيق"],
   images: ["images", "image", "imgs", "photos", "الصور", "صور"],
   createdAt: ["createdAt", "date", "timestamp", "created", "التاريخ", "تاريخ الإضافة"],
   approval: ["approval", "approved", "approvalStatus", "status", "التصديق", "حالة التصديق"],
@@ -110,10 +112,15 @@ export function normalizeTicket(raw: unknown, index: number): Ticket | null {
   const description = toText(pick(source, "description"))
   if (!name && !description) return null
 
+  const appIdRaw = toText(pick(source, "appId"))
+  const appNameRaw = toText(source.appName ?? source.app_name ?? source["اسم التطبيق"])
+
   return {
     id,
     name: name || "بدون اسم",
     description,
+    appId: appIdRaw || null,
+    appName: appNameRaw || null,
     images: toImages(pick(source, "images")),
     createdAt: toIso(pick(source, "createdAt")) ?? new Date(0).toISOString(),
     approval: parseApproval(pick(source, "approval")),

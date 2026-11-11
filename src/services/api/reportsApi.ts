@@ -19,6 +19,7 @@ function bodyFromFilters(filters: TicketFilters, includeImages: boolean) {
     to: filters.to || undefined,
     approval: filters.approval || "all",
     devStatus: filters.devStatus || "all",
+    appId: filters.appId && filters.appId !== "all" ? filters.appId : undefined,
     includeImages,
   }
 }

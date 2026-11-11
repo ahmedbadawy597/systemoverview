@@ -25,6 +25,7 @@ export function useTicketStats(filters: Partial<TicketFilters> = {}, enabled = t
     q: filters.query?.trim() || undefined,
     approval: filters.approval,
     devStatus: filters.devStatus,
+    appId: filters.appId,
     from: filters.from,
     to: filters.to,
   }

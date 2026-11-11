@@ -12,6 +12,8 @@ export type Permission =
   | "print"
   | "settings"
   | "manageUsers"
+  /** Workspace apps + credentials report (not ministry publish). */
+  | "manageApps"
 
 export interface RoleDefinition {
   id: Role
@@ -49,7 +51,17 @@ export const ROLES: Record<Role, RoleDefinition> = {
     label: "مدير",
     description: "كل الصلاحيات، بما فيها إدارة المستخدمين والتقارير والإعدادات.",
     requiresPassword: false,
-    permissions: ["view", "create", "approve", "devReview", "delete", "print", "settings", "manageUsers"],
+    permissions: [
+      "view",
+      "create",
+      "approve",
+      "devReview",
+      "delete",
+      "print",
+      "settings",
+      "manageUsers",
+      "manageApps",
+    ],
   },
 }
 
@@ -72,6 +84,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   print: "التقارير والطباعة",
   settings: "الإعدادات",
   manageUsers: "إدارة المستخدمين",
+  manageApps: "إدارة التطبيقات والمتابعة الفنية",
 }
 
 export function roleForPermission(permission: Permission): ProtectedRole {

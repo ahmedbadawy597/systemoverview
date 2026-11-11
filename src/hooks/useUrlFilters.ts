@@ -12,6 +12,7 @@ export function useUrlFilters(defaults: Partial<TicketFilters> = {}) {
   const filters = useMemo<TicketFilters>(() => {
     const approval = params.get("approval")
     const dev = params.get("status")
+    const appId = params.get("app") ?? defaults.appId ?? "all"
     const from = params.get("from") ?? ""
     const to = params.get("to") ?? ""
     return {
@@ -20,10 +21,11 @@ export function useUrlFilters(defaults: Partial<TicketFilters> = {}) {
         ? (approval as ApprovalStatus)
         : (defaults.approval ?? "all"),
       devStatus: DEV_ORDER.includes(dev as DevStatus) ? (dev as DevStatus) : (defaults.devStatus ?? "all"),
+      appId: appId || "all",
       from: DATE.test(from) ? from : "",
       to: DATE.test(to) ? to : "",
     }
-  }, [params, defaults.query, defaults.approval, defaults.devStatus])
+  }, [params, defaults.query, defaults.approval, defaults.devStatus, defaults.appId])
 
   const setFilters = useCallback(
     (patch: Partial<TicketFilters>) => {
@@ -38,6 +40,7 @@ export function useUrlFilters(defaults: Partial<TicketFilters> = {}) {
           write("q", merged.query, "")
           write("approval", merged.approval, "all")
           write("status", merged.devStatus, "all")
+          write("app", merged.appId, "all")
           write("from", merged.from, "")
           write("to", merged.to, "")
           return next

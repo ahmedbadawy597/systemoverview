@@ -28,6 +28,7 @@ export function NotesPage() {
     q: filters.query,
     approval: filters.approval,
     devStatus: filters.devStatus,
+    appId: filters.appId,
     from: filters.from,
     to: filters.to,
     sort: "createdAt",

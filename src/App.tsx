@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { FileQuestion, Loader2 } from "lucide-react"
-import { createHashRouter, Link, Outlet, RouterProvider } from "react-router-dom"
+import { createHashRouter, Link, Navigate, Outlet, RouterProvider } from "react-router-dom"
 import { EmptyState } from "@/components/common/EmptyState"
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { NoteActionsProvider } from "@/components/notes/NoteActionsProvider"
@@ -10,7 +10,10 @@ import { DirectionProvider } from "@/components/ui/direction"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AddNotePage } from "@/pages/AddNotePage"
+import { AppFormPage } from "@/pages/AppFormPage"
 import { ApprovalPage } from "@/pages/ApprovalPage"
+import { AppsPage } from "@/pages/AppsPage"
+import { CredentialsReportPage } from "@/pages/CredentialsReportPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { DeveloperReviewPage } from "@/pages/DeveloperReviewPage"
 import { LoginPage } from "@/pages/LoginPage"
@@ -21,6 +24,20 @@ import { ReportsPage } from "@/pages/ReportsPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { UsersPage } from "@/pages/UsersPage"
 import { AuthProvider, useAuth } from "@/services/auth/AuthProvider"
+
+/** Apps catalog browse — any role with view. */
+function RequireViewApps() {
+  const { canViewApps } = useAuth()
+  if (!canViewApps) return <Navigate to="/" replace />
+  return <Outlet />
+}
+
+/** Create/edit/credentials — assistant or system admin only. */
+function RequireManageApps() {
+  const { canManageApps } = useAuth()
+  if (!canManageApps) return <Navigate to="/apps" replace />
+  return <Outlet />
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +100,20 @@ const router = createHashRouter([
           { path: "approval", element: <ApprovalPage /> },
           { path: "developer", element: <DeveloperReviewPage /> },
           { path: "reports", element: <ReportsPage /> },
+          {
+            element: <RequireViewApps />,
+            children: [
+              { path: "apps", element: <AppsPage /> },
+              {
+                element: <RequireManageApps />,
+                children: [
+                  { path: "apps/new", element: <AppFormPage /> },
+                  { path: "apps/credentials", element: <CredentialsReportPage /> },
+                  { path: "apps/:id/edit", element: <AppFormPage /> },
+                ],
+              },
+            ],
+          },
           { path: "users", element: <UsersPage /> },
           { path: "settings", element: <SettingsPage /> },
           { path: "*", element: <NotFoundPage /> },

@@ -12,6 +12,7 @@ const KNOWN_PERMISSIONS: Permission[] = [
   "print",
   "settings",
   "manageUsers",
+  "manageApps",
 ]
 
 export interface ApiUserPayload {
@@ -44,18 +45,23 @@ function asPermissions(value: unknown): Permission[] {
 
 export function mapApiUser(raw: ApiUserPayload): PublicUser {
   const roles = asRoles(raw.roles)
+  const jobTitle = asJobTitle(raw.jobTitle)
   const fromApi = asPermissions(raw.permissions)
   const fromRoles = permissionsForRoles(roles)
   const permissions = [...new Set([...fromApi, ...fromRoles])]
   if (permissions.includes("manageUsers") && !permissions.includes("settings")) {
     permissions.push("settings")
   }
+  // Assistants get the apps workspace even without the admin system role.
+  if (jobTitle === "assistant" && !permissions.includes("manageApps")) {
+    permissions.push("manageApps")
+  }
 
   return {
     id: raw.id,
     username: raw.username,
     fullName: raw.fullName,
-    jobTitle: asJobTitle(raw.jobTitle),
+    jobTitle,
     roles,
     isActive: raw.isActive !== false,
     mustChangePassword: Boolean(raw.mustChangePassword),

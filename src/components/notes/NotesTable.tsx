@@ -62,7 +62,7 @@ export function NotesTable({
     else setPage(next)
   }
 
-  if (loading) return <TableSkeleton rows={pageSize ? Math.min(pageSize, 6) : 5} columns={full ? 7 : 6} />
+  if (loading) return <TableSkeleton rows={pageSize ? Math.min(pageSize, 6) : 5} columns={full ? 8 : 6} />
   if (tickets.length === 0) return <div className="p-5">{empty}</div>
 
   return (
@@ -72,8 +72,9 @@ export function NotesTable({
         <Table className="table-fixed">
           <colgroup>
             <col className={full ? "w-[80px]" : "w-[112px]"} />
-            <col className={withDescription ? "w-[24%]" : undefined} />
+            <col className={withDescription ? "w-[22%]" : undefined} />
             {withDescription && <col />}
+            {full && <col className="w-[150px]" />}
             {full && <col className="w-[80px]" />}
             <col className={full ? "w-[124px]" : "w-[112px]"} />
             <col className={full ? "w-[140px]" : "w-[128px]"} />
@@ -85,6 +86,7 @@ export function NotesTable({
               <TableHead>{full ? "الرقم" : "رقم الملاحظة"}</TableHead>
               <TableHead>اسم الملاحظة</TableHead>
               {withDescription && <TableHead>الوصف</TableHead>}
+              {full && <TableHead>التطبيق</TableHead>}
               {full && <TableHead>الصور</TableHead>}
               <TableHead>تاريخ الإضافة</TableHead>
               <TableHead>{full ? "التصديق" : "حالة التصديق"}</TableHead>
@@ -110,6 +112,17 @@ export function NotesTable({
                 {withDescription && (
                   <TableCell className="whitespace-normal">
                     <p className="line-clamp-2 text-[13px] leading-6 text-muted-foreground">{t.description || "—"}</p>
+                  </TableCell>
+                )}
+                {full && (
+                  <TableCell className="whitespace-normal">
+                    {t.appName ? (
+                      <span className="inline-flex max-w-full items-center rounded-md bg-surface-tint px-2 py-1 text-[12px] font-semibold text-brand ring-1 ring-brand/15">
+                        <span className="truncate">{t.appName}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[12px] text-faint">—</span>
+                    )}
                   </TableCell>
                 )}
                 {full && (
@@ -152,6 +165,11 @@ export function NotesTable({
                 )}
               </span>
               <span className="line-clamp-2 text-[14px] leading-6 font-semibold text-foreground">{t.name}</span>
+              {t.appName && (
+                <span className="inline-flex w-fit max-w-full items-center rounded-md bg-surface-tint px-2 py-0.5 text-[11px] font-semibold text-brand ring-1 ring-brand/15">
+                  <span className="truncate">{t.appName}</span>
+                </span>
+              )}
               <span className="flex flex-wrap gap-1.5">
                 <StatusBadge kind="approval" value={t.approval} />
                 <StatusBadge kind="dev" value={t.devStatus} />

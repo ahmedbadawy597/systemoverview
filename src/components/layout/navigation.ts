@@ -3,7 +3,9 @@ import {
   ClipboardList,
   FilePlus2,
   FileText,
+  KeyRound,
   LayoutDashboard,
+  LayoutGrid,
   Settings,
   Users,
   Wrench,
@@ -31,6 +33,21 @@ export const MAIN_NAV: NavItem[] = [
   { to: "/reports", label: "التقارير", icon: FileText, permission: "print" },
 ]
 
+export const APPS_NAV: NavItem = {
+  to: "/apps",
+  label: "التطبيقات",
+  icon: LayoutGrid,
+  end: true,
+  permission: "view",
+}
+
+export const CREDENTIALS_NAV: NavItem = {
+  to: "/apps/credentials",
+  label: "تقرير بيانات الوصول",
+  icon: KeyRound,
+  permission: "manageApps",
+}
+
 export const USERS_NAV: NavItem = { to: "/users", label: "المستخدمون", icon: Users, permission: "manageUsers" }
 
 export const SETTINGS_NAV: NavItem = { to: "/settings", label: "الإعدادات", icon: Settings, permission: "settings" }
@@ -42,6 +59,9 @@ export const PAGE_TITLES: Record<string, string> = {
   "/approval": "التصديق",
   "/developer": "مراجعة المبرمجين",
   "/reports": "التقارير",
+  "/apps": "التطبيقات",
+  "/apps/new": "إضافة تطبيق",
+  "/apps/credentials": "تقرير بيانات الوصول",
   "/users": "إدارة المستخدمين",
   "/settings": "الإعدادات",
 }

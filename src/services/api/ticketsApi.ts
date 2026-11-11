@@ -13,6 +13,8 @@ export interface TicketListQuery {
   q?: string
   approval?: ApprovalStatus | "all"
   devStatus?: TicketDevFilter
+  /** UUID, "none" (unlinked), or omit / "all". */
+  appId?: string
   from?: string
   to?: string
   sort?: TicketSort
@@ -73,6 +75,7 @@ export const ticketsApi = {
         q: query.q?.trim() || undefined,
         approval: query.approval && query.approval !== "all" ? query.approval : undefined,
         devStatus: query.devStatus && query.devStatus !== "all" ? query.devStatus : undefined,
+        appId: query.appId && query.appId !== "all" ? query.appId : undefined,
         from: query.from || undefined,
         to: query.to || undefined,
         sort: query.sort,
@@ -94,6 +97,7 @@ export const ticketsApi = {
         q: query.q?.trim() || undefined,
         approval: query.approval && query.approval !== "all" ? query.approval : undefined,
         devStatus: query.devStatus && query.devStatus !== "all" ? query.devStatus : undefined,
+        appId: query.appId && query.appId !== "all" ? query.appId : undefined,
         from: query.from || undefined,
         to: query.to || undefined,
       })}`,
@@ -119,6 +123,7 @@ export const ticketsApi = {
       body: {
         name: input.name.trim(),
         description: input.description.trim(),
+        appId: input.appId || undefined,
         images: input.images,
       },
     })

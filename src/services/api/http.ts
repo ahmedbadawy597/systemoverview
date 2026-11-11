@@ -1,15 +1,24 @@
 import { env } from "@/config/env"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./session"
 
+export type DuplicateAppRef = {
+  id: string
+  name: string
+  url: string
+  matchedBy: "name" | "url"
+}
+
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
+  readonly existing?: DuplicateAppRef
 
-  constructor(message: string, status = 0, code = "ERROR") {
+  constructor(message: string, status = 0, code = "ERROR", existing?: DuplicateAppRef) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.code = code
+    this.existing = existing
   }
 }
 
@@ -17,7 +26,19 @@ type Envelope<T> = {
   success?: boolean
   ok?: boolean
   data?: T
-  error?: { code?: string; message?: string } | string
+  meta?: PageMeta
+  error?: {
+    code?: string
+    message?: string
+    existing?: DuplicateAppRef
+  } | string
+}
+
+export interface PageMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
 }
 
 let refreshPromise: Promise<boolean> | null = null
@@ -75,7 +96,10 @@ export interface RequestOptions {
   signal?: AbortSignal
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function executeRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<{ data: T; meta?: PageMeta }> {
   const method = options.method ?? (options.body !== undefined ? "POST" : "GET")
   const headers: Record<string, string> = { Accept: "application/json" }
   if (options.body !== undefined) headers["Content-Type"] = "application/json"
@@ -98,12 +122,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (response.status === 401 && options.auth !== false && !options.skipRefresh) {
     const ok = await ensureRefresh()
-    if (ok) return apiRequest<T>(path, { ...options, skipRefresh: true })
+    if (ok) return executeRequest<T>(path, { ...options, skipRefresh: true })
     clearTokens()
     throw new ApiError("انتهت الجلسة. سجّل الدخول مجددًا.", 401, "UNAUTHORIZED")
   }
 
-  if (response.status === 204) return undefined as T
+  if (response.status === 204) return { data: undefined as T }
 
   const text = await response.text()
   let payload: Envelope<T> | T | null = null
@@ -122,7 +146,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       const err = envelope.error
       const message = typeof err === "string" ? err : err?.message || "رفض الخادم الطلب."
       const code = typeof err === "object" && err?.code ? err.code : "ERROR"
-      throw new ApiError(message, response.status, code)
+      const existing = typeof err === "object" ? err?.existing : undefined
+      throw new ApiError(message, response.status, code, existing)
     }
     if (!response.ok) {
       const err = envelope.error
@@ -130,14 +155,28 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         typeof err === "string" ? err : err?.message || `خطأ من الخادم (${response.status})`,
         response.status,
         typeof err === "object" && err?.code ? err.code : "ERROR",
+        typeof err === "object" ? err?.existing : undefined,
       )
     }
-    return envelope.data as T
+    return { data: envelope.data as T, meta: envelope.meta }
   }
 
   if (!response.ok) {
     throw new ApiError(`استجاب الخادم بالرمز ${response.status}.`, response.status)
   }
 
-  return payload as T
+  return { data: payload as T }
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { data } = await executeRequest<T>(path, options)
+  return data
+}
+
+/** Same as apiRequest, but keeps pagination `meta` when the API returns it. */
+export async function apiRequestWithMeta<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<{ data: T; meta?: PageMeta }> {
+  return executeRequest<T>(path, options)
 }

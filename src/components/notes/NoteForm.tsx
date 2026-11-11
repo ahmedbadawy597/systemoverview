@@ -1,18 +1,23 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2, Save } from "lucide-react"
+import { AppWindow, CheckCircle2, Loader2, Save } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import type { NewTicketInput } from "@/domain/ticket"
+import { useAppsList } from "@/hooks/useApps"
+import { cn } from "@/lib/utils"
 import { formatBytes, formatNumber } from "@/lib/format"
+import { useAuth } from "@/services/auth/AuthProvider"
 import { ImageUploader, type UploadItem } from "./ImageUploader"
 
 const NAME_MAX = 150
 const DESC_MAX = 3000
+const NONE_APP = "__none__"
 
 const schema = z.object({
   name: z
@@ -27,6 +32,7 @@ const schema = z.object({
     .min(1, "وصف الملاحظة مطلوب.")
     .min(10, "اكتب وصفًا لا يقل عن ١٠ أحرف يوضح الملاحظة.")
     .max(DESC_MAX, `الحد الأقصى ${formatNumber(DESC_MAX)} حرف.`),
+  appId: z.string().nullable().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -39,14 +45,18 @@ interface NoteFormProps {
 
 export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
   const [images, setImages] = useState<UploadItem[]>([])
+  const { canViewApps } = useAuth()
+  const appsQuery = useAppsList({ page: 1, limit: 100, status: "published" }, canViewApps)
+  const apps = useMemo(() => appsQuery.data?.items ?? [], [appsQuery.data])
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isDirty, isSubmitted },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", description: "" },
+    defaultValues: { name: "", description: "", appId: null },
     mode: "onTouched",
   })
 
@@ -55,14 +65,95 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
   const payloadBytes = ready.reduce((n, i) => n + (i.compressedBytes ?? 0), 0)
   const nameLength = watch("name")?.length ?? 0
   const descLength = watch("description")?.length ?? 0
+  const selectedAppId = watch("appId") ?? null
+  const selectedApp = apps.find((a) => a.id === selectedAppId) ?? null
 
   const submit = handleSubmit((values) =>
-    onSubmit({ name: values.name, description: values.description, images: ready.map((i) => i.dataUrl!) }),
+    onSubmit({
+      name: values.name,
+      description: values.description,
+      appId: values.appId || null,
+      images: ready.map((i) => i.dataUrl!),
+    }),
   )
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-0">
       <div className="grid gap-7 p-5 sm:p-7">
+        <section className="grid gap-3 rounded-xl border border-line bg-surface-soft/40 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 flex-none items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15">
+              <AppWindow className="size-5" strokeWidth={1.75} aria-hidden />
+            </span>
+            <div className="grid min-w-0 flex-1 gap-1">
+              <Label htmlFor="note-app" className="text-[14px] font-bold text-foreground">
+                التطبيق المرتبط
+                <span className="ms-2 text-xs font-normal text-muted-foreground">اختياري</span>
+              </Label>
+              <p className="text-[12.5px] leading-5 text-muted-foreground">
+                اربط الملاحظة بمنظومة التحول الرقمي المعنية لتسهيل المتابعة والتصفية لاحقًا.
+              </p>
+            </div>
+          </div>
+
+          <Select
+            value={selectedAppId ?? NONE_APP}
+            onValueChange={(value) => {
+              if (value === NONE_APP) {
+                setValue("appId", null, { shouldDirty: true })
+                return
+              }
+              setValue("appId", value, { shouldDirty: true })
+              const app = apps.find((a) => a.id === value)
+              if (app && !watch("name")?.trim()) {
+                setValue("name", `ملاحظة على ${app.name}`, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+            }}
+            disabled={submitting || appsQuery.isLoading}
+          >
+            <SelectTrigger id="note-app" className="h-11 bg-surface text-[15px]">
+              <SelectValue
+                placeholder={appsQuery.isLoading ? "جارٍ تحميل التطبيقات…" : "اختر التطبيق المرتبط"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE_APP}>بدون ربط بتطبيق</SelectItem>
+              {apps.map((app) => (
+                <SelectItem key={app.id} value={app.id}>
+                  {app.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {appsQuery.isError && (
+            <p className="text-[12.5px] text-destructive">تعذّر تحميل قائمة التطبيقات. يمكنك المتابعة دون ربط.</p>
+          )}
+
+          {selectedApp ? (
+            <div
+              className={cn(
+                "flex items-start gap-2.5 rounded-lg border border-brand/20 bg-brand/[0.06] px-3 py-2.5 text-[12.5px] leading-5 text-foreground",
+              )}
+            >
+              <CheckCircle2 className="mt-0.5 size-4 flex-none text-brand" aria-hidden />
+              <div className="grid gap-0.5">
+                <p className="font-semibold">{selectedApp.name}</p>
+                <p className="text-muted-foreground">
+                  {selectedApp.description?.trim() || "سيظهر اسم التطبيق في سجل الملاحظات ولوحة التصفية."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              عند اختيار تطبيق، يُقترح اسم الملاحظة تلقائيًا إذا كان حقل الاسم فارغًا.
+            </p>
+          )}
+        </section>
+
         <div className="grid gap-2">
           <div className="flex items-baseline justify-between gap-2">
             <Label htmlFor="note-name" className="text-[14px] font-bold">
