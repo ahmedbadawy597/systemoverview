@@ -10,8 +10,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import type { NewTicketInput } from "@/domain/ticket"
 import { useAppsList } from "@/hooks/useApps"
+import {
+  focusFirstFormError,
+  localizeNoteFieldMessage,
+  mapApiDetailsToFormErrors,
+  NOTE_FORM_FIELD_IDS,
+  NOTE_FORM_FIELD_MAP,
+} from "@/lib/apiFieldErrors"
 import { cn } from "@/lib/utils"
 import { formatBytes, formatNumber } from "@/lib/format"
+import { ApiError } from "@/services/api/http"
 import { useAuth } from "@/services/auth/AuthProvider"
 import { ImageUploader, type UploadItem } from "./ImageUploader"
 
@@ -39,12 +47,15 @@ type FormValues = z.infer<typeof schema>
 
 interface NoteFormProps {
   submitting: boolean
-  onSubmit: (input: NewTicketInput) => void
+  /** Resolves on success; may throw ApiError with field `details`. */
+  onSubmit: (input: NewTicketInput) => Promise<void>
   onCancel: (dirty: boolean) => void
 }
 
 export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
   const [images, setImages] = useState<UploadItem[]>([])
+  const [imagesError, setImagesError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const { canViewApps } = useAuth()
   const appsQuery = useAppsList({ page: 1, limit: 100, status: "published" }, canViewApps)
   const apps = useMemo(() => appsQuery.data?.items ?? [], [appsQuery.data])
@@ -53,6 +64,8 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
     handleSubmit,
     watch,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors, isDirty, isSubmitted },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -68,18 +81,78 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
   const selectedAppId = watch("appId") ?? null
   const selectedApp = apps.find((a) => a.id === selectedAppId) ?? null
 
-  const submit = handleSubmit((values) =>
-    onSubmit({
-      name: values.name,
-      description: values.description,
-      appId: values.appId || null,
-      images: ready.map((i) => i.dataUrl!),
-    }),
-  )
+  function applyServerValidation(error: ApiError) {
+    const { fieldErrors, unmapped } = mapApiDetailsToFormErrors(
+      error.details,
+      NOTE_FORM_FIELD_MAP,
+      localizeNoteFieldMessage,
+    )
+
+    clearErrors()
+    setImagesError(null)
+
+    const focusMap: Record<string, string> = {}
+    for (const [key, message] of Object.entries(fieldErrors)) {
+      if (key === "images") {
+        setImagesError(message)
+        focusMap.images = message
+        continue
+      }
+      if (key === "name" || key === "description" || key === "appId") {
+        setError(key, { type: "server", message })
+        focusMap[key] = message
+      }
+    }
+
+    if (!Object.keys(fieldErrors).length) {
+      setFormError(error.message || unmapped[0] || "تعذّر حفظ الملاحظة. حاول مرة أخرى.")
+    } else if (unmapped.length) {
+      setFormError(unmapped[0])
+    } else {
+      setFormError(null)
+    }
+
+    queueMicrotask(() => focusFirstFormError(focusMap, NOTE_FORM_FIELD_IDS))
+  }
+
+  const submit = handleSubmit(async (values) => {
+    if (submitting || compressing) return
+    setFormError(null)
+    setImagesError(null)
+    clearErrors()
+
+    try {
+      await onSubmit({
+        name: values.name,
+        description: values.description,
+        appId: values.appId || null,
+        images: ready.map((i) => i.dataUrl!),
+      })
+    } catch (error) {
+      if (error instanceof ApiError) {
+        if (error.details?.length) {
+          applyServerValidation(error)
+          return
+        }
+        setFormError(error.message || "تعذّر حفظ الملاحظة. حاول مرة أخرى.")
+        return
+      }
+      setFormError(error instanceof Error ? error.message : "تعذّر حفظ الملاحظة. حاول مرة أخرى.")
+    }
+  })
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-0">
       <div className="grid gap-7 p-5 sm:p-7">
+        {formError && (
+          <p
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-destructive"
+          >
+            {formError}
+          </p>
+        )}
+
         <section className="grid gap-3 rounded-xl border border-line bg-surface-soft/40 p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex size-10 flex-none items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-brand/15">
@@ -99,6 +172,8 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
           <Select
             value={selectedAppId ?? NONE_APP}
             onValueChange={(value) => {
+              clearErrors("appId")
+              setFormError(null)
               if (value === NONE_APP) {
                 setValue("appId", null, { shouldDirty: true })
                 return
@@ -114,7 +189,11 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
             }}
             disabled={submitting || appsQuery.isLoading}
           >
-            <SelectTrigger id="note-app" className="h-11 bg-surface text-[15px]">
+            <SelectTrigger
+              id="note-app"
+              className="h-11 bg-surface text-[15px]"
+              aria-invalid={Boolean(errors.appId)}
+            >
               <SelectValue
                 placeholder={appsQuery.isLoading ? "جارٍ تحميل التطبيقات…" : "اختر التطبيق المرتبط"}
               />
@@ -128,6 +207,9 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
               ))}
             </SelectContent>
           </Select>
+          {errors.appId && (
+            <p className="text-[13px] text-danger">{errors.appId.message}</p>
+          )}
 
           {appsQuery.isError && (
             <p className="text-[12.5px] text-destructive">تعذّر تحميل قائمة التطبيقات. يمكنك المتابعة دون ربط.</p>
@@ -172,7 +254,12 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
             aria-describedby={errors.name ? "note-name-error" : undefined}
             disabled={submitting}
             className="h-11 text-[15px]"
-            {...register("name")}
+            {...register("name", {
+              onChange: () => {
+                clearErrors("name")
+                setFormError(null)
+              },
+            })}
           />
           {errors.name && (
             <p id="note-name-error" className="text-[13px] text-danger">
@@ -200,7 +287,12 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
             aria-describedby={errors.description ? "note-description-error" : "note-description-hint"}
             disabled={submitting}
             className="min-h-44 text-[15px]"
-            {...register("description")}
+            {...register("description", {
+              onChange: () => {
+                clearErrors("description")
+                setFormError(null)
+              },
+            })}
           />
           {errors.description ? (
             <p id="note-description-error" className="text-[13px] text-danger">
@@ -220,9 +312,27 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
             </p>
             <span className="text-xs text-muted-foreground">اختياري</span>
           </div>
-          <div role="group" aria-labelledby="note-images-label">
-            <ImageUploader value={images} onChange={setImages} disabled={submitting} />
+          <div
+            role="group"
+            aria-labelledby="note-images-label"
+            aria-invalid={imagesError ? true : undefined}
+            className={cn(imagesError && "rounded-xl ring-2 ring-destructive/30")}
+          >
+            <ImageUploader
+              value={images}
+              onChange={(updater) => {
+                setImagesError(null)
+                setFormError(null)
+                setImages(updater)
+              }}
+              disabled={submitting}
+            />
           </div>
+          {imagesError && (
+            <p className="text-[13px] text-danger" role="alert">
+              {imagesError}
+            </p>
+          )}
         </div>
       </div>
 
@@ -234,8 +344,8 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
               : "جارٍ حفظ الملاحظة…"
             : compressing
               ? "انتظر حتى يكتمل ضغط الصور."
-              : isSubmitted && Object.keys(errors).length
-                ? "راجع الحقول المطلوبة قبل الحفظ."
+              : formError || imagesError || (isSubmitted && Object.keys(errors).length)
+                ? "راجع الحقول المعلّمة قبل الحفظ."
                 : "ستُحفظ الملاحظة بحالة «بانتظار التصديق»."}
         </p>
         <div className="flex gap-2 sm:flex-row-reverse">

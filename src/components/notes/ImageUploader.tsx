@@ -1,6 +1,12 @@
 import { useId, useRef, useState, type DragEvent } from "react"
 import { AlertCircle, ImagePlus, Loader2, X } from "lucide-react"
-import { ACCEPTED_IMAGE_TYPES, MAX_SOURCE_BYTES, compressToJpeg } from "@/lib/image"
+import {
+  ACCEPTED_IMAGE_ACCEPT,
+  ACCEPTED_IMAGE_TYPES,
+  MAX_SOURCE_BYTES,
+  compressToJpeg,
+  isRejectedImageFile,
+} from "@/lib/image"
 import { formatBytes, formatNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { ImageLightbox } from "./ImageLightbox"
@@ -37,8 +43,20 @@ export function ImageUploader({ value, onChange, maxFiles = 8, disabled }: Image
   function addFiles(list: FileList | File[]) {
     setNotice(null)
     const files = Array.from(list)
-    const images = files.filter((f) => f.type.startsWith("image/") || ACCEPTED_IMAGE_TYPES.includes(f.type))
-    if (images.length < files.length) setNotice("تم تجاهل الملفات التي ليست صورًا.")
+    const rejectedSvg = files.some(isRejectedImageFile)
+    const images = files.filter(
+      (f) =>
+        !isRejectedImageFile(f) &&
+        ((ACCEPTED_IMAGE_TYPES as readonly string[]).includes(f.type) ||
+          (!f.type && /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name))),
+    )
+    if (images.length < files.length) {
+      setNotice(
+        rejectedSvg
+          ? "تم رفض ملفات SVG أو الصيغ غير المدعومة. يُسمح فقط بـ JPG و PNG و WEBP."
+          : "تم تجاهل الملفات التي ليست صورًا.",
+      )
+    }
     const accepted = images.slice(0, Math.max(0, remaining))
     if (images.length > accepted.length) setNotice(`الحد الأقصى ${formatNumber(maxFiles)} صور لكل ملاحظة.`)
 
@@ -116,7 +134,7 @@ export function ImageUploader({ value, onChange, maxFiles = 8, disabled }: Image
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept={ACCEPTED_IMAGE_ACCEPT}
           multiple
           className="sr-only"
           tabIndex={-1}

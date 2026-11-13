@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useQueries } from "@tanstack/react-query"
 import {
   ExternalLink,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
+import { CredentialsPrintDocument } from "@/components/apps/CredentialsPrintDocument"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ErrorState } from "@/components/common/ErrorState"
 import { PermissionEmpty } from "@/components/common/PermissionEmpty"
@@ -72,9 +74,20 @@ function downloadCsv(rows: CredRow[]) {
   URL.revokeObjectURL(url)
 }
 
+function waitForNextPaint() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve())
+    })
+  })
+}
+
 export function CredentialsReportPage() {
   const { canManageApps } = useAuth()
   const [q, setQ] = useState("")
+  const [printGeneratedAt, setPrintGeneratedAt] = useState(() => new Date().toISOString())
+  const [isPrinting, setIsPrinting] = useState(false)
+  const printingRef = useRef(false)
   const appsQuery = useAppsList({ page: 1, limit: 100, status: "all" }, canManageApps)
   const apps = appsQuery.data?.items ?? []
 
@@ -87,9 +100,9 @@ export function CredentialsReportPage() {
     })),
   })
 
-  const loadingInterfaces = interfaceQueries.some((q) => q.isLoading)
-  const interfacesError = interfaceQueries.find((q) => q.error)?.error
-  const refreshing = appsQuery.isFetching || interfaceQueries.some((q) => q.isFetching)
+  const loadingInterfaces = interfaceQueries.some((query) => query.isLoading)
+  const interfacesError = interfaceQueries.find((query) => query.error)?.error
+  const refreshing = appsQuery.isFetching || interfaceQueries.some((query) => query.isFetching)
 
   const rows = useMemo(() => {
     const out: CredRow[] = []
@@ -122,6 +135,49 @@ export function CredentialsReportPage() {
     )
   }, [rows, q])
 
+  const printRows = useMemo(
+    () =>
+      filtered.map((r) => ({
+        key: r.key,
+        appName: r.appName,
+        label: r.label,
+        url: r.url,
+        username: r.username,
+        password: r.password,
+      })),
+    [filtered],
+  )
+
+  const handlePrint = useCallback(async () => {
+    if (printingRef.current) return
+    printingRef.current = true
+    setIsPrinting(true)
+    const stamp = new Date().toISOString()
+    setPrintGeneratedAt(stamp)
+
+    let fallbackTimer = 0
+    const finish = () => {
+      if (!printingRef.current) return
+      printingRef.current = false
+      setIsPrinting(false)
+      window.removeEventListener("afterprint", finish)
+      if (fallbackTimer) window.clearTimeout(fallbackTimer)
+    }
+    window.addEventListener("afterprint", finish)
+    fallbackTimer = window.setTimeout(finish, 60_000)
+
+    try {
+      if (document.fonts?.ready) {
+        await document.fonts.ready
+      }
+      await waitForNextPaint()
+      window.print()
+    } catch {
+      finish()
+      toast.error("تعذّرت الطباعة. أعد المحاولة.")
+    }
+  }, [])
+
   if (!canManageApps) {
     return <PermissionEmpty permission="manageApps" title="تقرير بيانات الوصول للمساعد والمدير فقط" />
   }
@@ -131,9 +187,8 @@ export function CredentialsReportPage() {
   const ifaceCount = rows.length
 
   return (
-    <div className="grid gap-6 print:gap-3">
+    <div className="grid gap-6">
       <PageHeader
-        className="print:hidden"
         title="التقارير التفصيلية وسجلات النظام"
         description="جدول تفاعلي يعرض بيانات دخول الواجهات المسجّلة لكل تطبيق — للاستخدام الفني فقط."
         actions={
@@ -143,7 +198,7 @@ export function CredentialsReportPage() {
               disabled={refreshing}
               onClick={() => {
                 void appsQuery.refetch()
-                interfaceQueries.forEach((q) => void q.refetch())
+                interfaceQueries.forEach((query) => void query.refetch())
               }}
             >
               {refreshing ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <RefreshCw className="size-4" aria-hidden />}
@@ -158,19 +213,18 @@ export function CredentialsReportPage() {
 
       {(appsQuery.error || interfacesError) && (
         <ErrorState
-          className="print:hidden"
           title="تعذّر تحميل تقرير الوصول"
           error={appsQuery.error ?? interfacesError}
           onRetry={() => {
             void appsQuery.refetch()
-            interfaceQueries.forEach((q) => void q.refetch())
+            interfaceQueries.forEach((query) => void query.refetch())
           }}
           retrying={refreshing}
         />
       )}
 
-      <Panel className="overflow-hidden print:border-0 print:shadow-none">
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 print:border-0 sm:flex-row sm:items-center sm:justify-between">
+      <Panel className="overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="grid gap-1">
             <h2 className="font-heading text-[17px] font-bold text-foreground">
               تقرير بيانات الوصول والحسابات للأنظمة
@@ -180,12 +234,12 @@ export function CredentialsReportPage() {
                 ? "جارٍ تجميع الواجهات…"
                 : `${formatNumber(ifaceCount)} واجهة عبر ${formatNumber(appCount)} تطبيق`}
             </p>
-            <p className="hidden text-[12px] text-muted-foreground print:block" id="print-date-stamp">
-              تاريخ استخراج التقرير: {formatDateTime(new Date().toISOString())}
+            <p className="sr-only" aria-live="polite">
+              تاريخ استخراج التقرير: {formatDateTime(printGeneratedAt)}
             </p>
           </div>
 
-          <div className="flex flex-col gap-2 print:hidden sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative min-w-[220px]">
               <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
               <Input
@@ -197,7 +251,7 @@ export function CredentialsReportPage() {
             </div>
             <Button
               variant="outline"
-              disabled={!filtered.length}
+              disabled={loading || !filtered.length}
               onClick={() => {
                 downloadCsv(filtered)
                 toast.success("تم تصدير التقرير (CSV)")
@@ -206,13 +260,12 @@ export function CredentialsReportPage() {
               <FileSpreadsheet className="size-4" aria-hidden />
               تصدير (CSV)
             </Button>
-            <Button
-              disabled={!filtered.length}
-              onClick={() => {
-                window.print()
-              }}
-            >
-              <Printer className="size-4" aria-hidden />
+            <Button disabled={loading || isPrinting} onClick={() => void handlePrint()}>
+              {isPrinting ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Printer className="size-4" aria-hidden />
+              )}
               طباعة التقرير
             </Button>
           </div>
@@ -251,7 +304,7 @@ export function CredentialsReportPage() {
                   <TableHead>الرابط المخصص</TableHead>
                   <TableHead>اسم المستخدم</TableHead>
                   <TableHead>كلمة المرور</TableHead>
-                  <TableHead className="print:hidden text-center">إجراء</TableHead>
+                  <TableHead className="text-center">إجراء</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -259,7 +312,7 @@ export function CredentialsReportPage() {
                   <TableRow key={row.key}>
                     <TableCell className="text-center tabular text-muted-foreground">{formatNumber(index + 1)}</TableCell>
                     <TableCell className="font-semibold text-foreground">
-                      <Link to={`/apps/${row.appId}/edit`} className="hover:text-brand hover:underline print:no-underline print:text-foreground">
+                      <Link to={`/apps/${row.appId}/edit`} className="hover:text-brand hover:underline">
                         {row.appName}
                       </Link>
                     </TableCell>
@@ -275,7 +328,7 @@ export function CredentialsReportPage() {
                     </TableCell>
                     <TableCell className="max-w-[220px] break-all font-mono text-[12px]" dir="ltr">
                       {row.url ? (
-                        <a href={row.url} target="_blank" rel="noreferrer" className="text-brand hover:underline print:text-foreground">
+                        <a href={row.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">
                           {row.url}
                         </a>
                       ) : (
@@ -288,7 +341,7 @@ export function CredentialsReportPage() {
                     <TableCell className="font-mono text-[13px] font-semibold text-amber-800" dir="ltr">
                       {row.password || "—"}
                     </TableCell>
-                    <TableCell className="print:hidden text-center">
+                    <TableCell className="text-center">
                       {row.url ? (
                         <Button asChild size="sm" className="h-8">
                           <a href={row.url} target="_blank" rel="noreferrer">
@@ -308,9 +361,14 @@ export function CredentialsReportPage() {
         </div>
       </Panel>
 
-      <p className="hidden text-center text-[11px] text-muted-foreground print:block">
-        مشروع التحول الرقمي — تقرير بيانات الحسابات والروابط المخصصة (سري — للاستخدام الداخلي)
-      </p>
+      {createPortal(
+        <CredentialsPrintDocument
+          rows={printRows}
+          generatedAt={printGeneratedAt}
+          appCount={appCount}
+        />,
+        document.body,
+      )}
     </div>
   )
 }

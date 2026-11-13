@@ -8,17 +8,30 @@ export type DuplicateAppRef = {
   matchedBy: "name" | "url"
 }
 
+export type ApiValidationDetail = {
+  field?: string
+  message: string
+}
+
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
   readonly existing?: DuplicateAppRef
+  readonly details?: ApiValidationDetail[]
 
-  constructor(message: string, status = 0, code = "ERROR", existing?: DuplicateAppRef) {
+  constructor(
+    message: string,
+    status = 0,
+    code = "ERROR",
+    existing?: DuplicateAppRef,
+    details?: ApiValidationDetail[],
+  ) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.code = code
     this.existing = existing
+    this.details = details
   }
 }
 
@@ -31,6 +44,7 @@ type Envelope<T> = {
     code?: string
     message?: string
     existing?: DuplicateAppRef
+    details?: ApiValidationDetail[]
   } | string
 }
 
@@ -147,7 +161,8 @@ async function executeRequest<T>(
       const message = typeof err === "string" ? err : err?.message || "رفض الخادم الطلب."
       const code = typeof err === "object" && err?.code ? err.code : "ERROR"
       const existing = typeof err === "object" ? err?.existing : undefined
-      throw new ApiError(message, response.status, code, existing)
+      const details = typeof err === "object" ? err?.details : undefined
+      throw new ApiError(message, response.status, code, existing, details)
     }
     if (!response.ok) {
       const err = envelope.error
@@ -156,6 +171,7 @@ async function executeRequest<T>(
         response.status,
         typeof err === "object" && err?.code ? err.code : "ERROR",
         typeof err === "object" ? err?.existing : undefined,
+        typeof err === "object" ? err?.details : undefined,
       )
     }
     return { data: envelope.data as T, meta: envelope.meta }

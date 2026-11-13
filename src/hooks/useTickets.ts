@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import type { TicketFilters } from "@/domain/stats"
 import type { DevReviewInput, NewTicketInput, Ticket } from "@/domain/ticket"
+import { ApiError } from "@/services/api/http"
 import { ticketsApi, type TicketListQuery } from "@/services/api/ticketsApi"
 
 export const TICKETS_KEY = ["tickets"] as const
@@ -70,7 +71,11 @@ export function useAddTicket() {
   return useMutation({
     mutationFn: (input: NewTicketInput) => ticketsApi.addTicket(input),
     onSuccess: () => invalidateTicketQueries(client),
-    onError: (error) => toast.error("تعذّر حفظ الملاحظة", { description: errorMessage(error) }),
+    onError: (error) => {
+      // Field-level validation is shown inline on NoteForm.
+      if (error instanceof ApiError && error.details?.length) return
+      toast.error("تعذّر حفظ الملاحظة", { description: errorMessage(error) })
+    },
   })
 }
 
@@ -94,7 +99,10 @@ export function useUpdateDevReview() {
       toast.success("تم حفظ مراجعة المبرمجين")
       invalidateTicketQueries(client)
     },
-    onError: (error) => toast.error("تعذّر حفظ المراجعة", { description: errorMessage(error) }),
+    onError: (error) => {
+      if (error instanceof ApiError && error.details?.length) return
+      toast.error("تعذّر حفظ المراجعة", { description: errorMessage(error) })
+    },
   })
 }
 

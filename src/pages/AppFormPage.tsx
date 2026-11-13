@@ -23,7 +23,10 @@ import {
   type AppStatusLabel,
 } from "@/domain/app"
 import { useApp, useAppInterfaces, useCreateApp, useReplaceAppInterfaces, useUpdateApp } from "@/hooks/useApps"
-import { appsApi, type DuplicateCheckResult } from "@/services/api/appsApi"
+import { focusFirstFormError, mapApiDetailsToFormErrors } from "@/lib/apiFieldErrors"
+import { MAX_APP_USERS_COUNT, parseStrictInteger } from "@/lib/appLimits"
+import { formatNumber } from "@/lib/format"
+import { appsApi, type AppMutateResult, type DuplicateCheckResult } from "@/services/api/appsApi"
 import { useAuth } from "@/services/auth/AuthProvider"
 
 interface Draft {
@@ -39,6 +42,8 @@ interface Draft {
   sortOrder: string
   publishNow: boolean
 }
+
+type FormErrorKey = keyof Draft | "interfaces" | "form"
 
 const EMPTY: Draft = {
   name: "",
@@ -66,7 +71,7 @@ export function AppFormPage() {
   const replaceInterfaces = useReplaceAppInterfaces()
   const [draft, setDraft] = useState<Draft>(EMPTY)
   const [interfaces, setInterfaces] = useState<AppInterfaceDraft[]>([])
-  const [errors, setErrors] = useState<Partial<Record<keyof Draft | "interfaces", string>>>({})
+  const [errors, setErrors] = useState<Partial<Record<FormErrorKey, string>>>({})
   const [duplicate, setDuplicate] = useState<DuplicateCheckResult | null>(null)
   const dupTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -148,8 +153,8 @@ export function AppFormPage() {
   }
 
   function validate(next: Draft, nextInterfaces: AppInterfaceDraft[]) {
-    const nextErrors: Partial<Record<keyof Draft | "interfaces", string>> = {}
-    if (!next.name.trim()) nextErrors.name = "اسم التطبيق مطلوب"
+    const nextErrors: Partial<Record<FormErrorKey, string>> = {}
+    if (!next.name.trim()) nextErrors.name = "يرجى إدخال اسم التطبيق بشكل صحيح"
     if (!next.url.trim()) nextErrors.url = "رابط التطبيق مطلوب"
     else {
       try {
@@ -159,22 +164,65 @@ export function AppFormPage() {
         nextErrors.url = "رابط غير صالح"
       }
     }
-    const users = Number(next.usersCount)
-    if (!Number.isInteger(users) || users < 0) nextErrors.usersCount = "أدخل عددًا صحيحًا ≥ ٠"
-    const ready = Number(next.operationalReadinessPercent)
-    if (!Number.isInteger(ready) || ready < 0 || ready > 100) {
-      nextErrors.operationalReadinessPercent = "الجاهزية بين ٠ و ١٠٠"
+    const users = parseStrictInteger(next.usersCount)
+    if (users === null || users < 0 || users > MAX_APP_USERS_COUNT) {
+      nextErrors.usersCount = "يرجى إدخال عدد صحيح للمستخدمين"
+    }
+
+    const ready = parseStrictInteger(next.operationalReadinessPercent)
+    if (ready === null || ready < 0 || ready > 100) {
+      nextErrors.operationalReadinessPercent = "يرجى إدخال نسبة جاهزية صحيحة بين 0 و100"
+    }
+
+    const sort = parseStrictInteger(next.sortOrder)
+    if (sort === null) {
+      nextErrors.sortOrder = "يرجى إدخال رقم صحيح لترتيب العرض"
     }
     const blankLabel = nextInterfaces.some((row) => !row.label.trim())
     if (blankLabel) nextErrors.interfaces = "كل واجهة تحتاج مسمّى / دورًا"
     if (nextInterfaces.length > 50) nextErrors.interfaces = "الحد الأقصى ٥٠ واجهة لكل تطبيق"
     setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) {
+      queueMicrotask(() => focusFirstFormError(nextErrors as Record<string, string>))
+    }
     return Object.keys(nextErrors).length === 0
+  }
+
+  function applyApiFailure(result: Extract<AppMutateResult, { ok: false }>) {
+    if (result.existing) {
+      setDuplicate({
+        id: result.existing.id,
+        name: result.existing.name,
+        url: result.existing.url,
+        matchedBy: result.existing.matchedBy,
+      })
+      return
+    }
+
+    const { fieldErrors, unmapped } = mapApiDetailsToFormErrors(result.fieldErrors)
+    const nextErrors: Partial<Record<FormErrorKey, string>> = {
+      ...(fieldErrors as Partial<Record<FormErrorKey, string>>),
+    }
+    if (!Object.keys(fieldErrors).length) {
+      nextErrors.form = result.error || unmapped[0] || "تعذّر حفظ التطبيق. حاول مرة أخرى."
+    } else if (unmapped.length) {
+      nextErrors.form = unmapped[0]
+    }
+    setErrors(nextErrors)
+    queueMicrotask(() => focusFirstFormError(nextErrors as Record<string, string>))
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (saving) return
     if (!validate(draft, interfaces)) return
+
+    const usersCount = parseStrictInteger(draft.usersCount)
+    const operationalReadinessPercent = parseStrictInteger(draft.operationalReadinessPercent)
+    const sortOrder = parseStrictInteger(draft.sortOrder)
+    if (usersCount === null || operationalReadinessPercent === null || sortOrder === null) {
+      return
+    }
 
     const payload = {
       name: draft.name.trim(),
@@ -183,23 +231,16 @@ export function AppFormPage() {
       color: draft.color,
       icon: draft.icon,
       statusLabel: draft.statusLabel,
-      usersCount: Number(draft.usersCount),
-      operationalReadinessPercent: Number(draft.operationalReadinessPercent),
+      usersCount,
+      operationalReadinessPercent,
       isFeatured: draft.isFeatured,
-      sortOrder: Number(draft.sortOrder) || 0,
+      sortOrder,
     }
 
     if (isEdit && id) {
       const result = await update.mutateAsync({ id, input: payload })
       if (!result.ok) {
-        if (result.existing) {
-          setDuplicate({
-            id: result.existing.id,
-            name: result.existing.name,
-            url: result.existing.url,
-            matchedBy: result.existing.matchedBy,
-          })
-        }
+        applyApiFailure(result)
         return
       }
       const ifaceResult = await replaceInterfaces.mutateAsync({ appId: id, drafts: interfaces })
@@ -216,14 +257,7 @@ export function AppFormPage() {
       publishNow: canPublishApps && draft.publishNow,
     })
     if (!result.ok) {
-      if (result.existing) {
-        setDuplicate({
-          id: result.existing.id,
-          name: result.existing.name,
-          url: result.existing.url,
-          matchedBy: result.existing.matchedBy,
-        })
-      }
+      applyApiFailure(result)
       return
     }
     if (interfaces.length) {
@@ -242,6 +276,13 @@ export function AppFormPage() {
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((prev) => ({ ...prev, [key]: value }))
+    setErrors((prev) => {
+      if (!prev[key] && !prev.form) return prev
+      const next = { ...prev }
+      delete next[key]
+      delete next.form
+      return next
+    })
   }
 
   return (
@@ -268,7 +309,13 @@ export function AppFormPage() {
           <Laptop className="size-8 opacity-80" aria-hidden />
         </div>
 
-        <form onSubmit={onSubmit} className="grid gap-6 p-5 sm:p-6">
+        <form onSubmit={onSubmit} className="grid gap-6 p-5 sm:p-6" noValidate>
+          {errors.form && (
+            <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-destructive">
+              {errors.form}
+            </p>
+          )}
+
           {duplicate && duplicate.id !== id && (
             <aside
               role="status"
@@ -399,37 +446,74 @@ export function AppFormPage() {
                 </Label>
                 <Input
                   id="app-users"
-                  type="number"
-                  min={0}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
+                  dir="ltr"
+                  className="text-start tabular"
                   value={draft.usersCount}
                   onChange={(e) => set("usersCount", e.target.value)}
                   aria-invalid={Boolean(errors.usersCount)}
+                  aria-describedby={errors.usersCount ? "app-users-error" : "app-users-hint"}
                 />
-                {errors.usersCount && <p className="text-[12px] text-destructive">{errors.usersCount}</p>}
+                {errors.usersCount ? (
+                  <p id="app-users-error" className="text-[12px] text-destructive">
+                    {errors.usersCount}
+                  </p>
+                ) : (
+                  <p id="app-users-hint" className="text-[11px] text-muted-foreground">
+                    عدد صحيح من ٠ إلى {formatNumber(MAX_APP_USERS_COUNT)}
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="app-ready">الجاهزية التشغيلية %</Label>
                 <Input
                   id="app-ready"
-                  type="number"
-                  min={0}
-                  max={100}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
+                  dir="ltr"
+                  className="text-start tabular"
                   value={draft.operationalReadinessPercent}
                   onChange={(e) => set("operationalReadinessPercent", e.target.value)}
                   aria-invalid={Boolean(errors.operationalReadinessPercent)}
+                  aria-describedby={
+                    errors.operationalReadinessPercent ? "app-ready-error" : "app-ready-hint"
+                  }
                 />
-                {errors.operationalReadinessPercent && (
-                  <p className="text-[12px] text-destructive">{errors.operationalReadinessPercent}</p>
+                {errors.operationalReadinessPercent ? (
+                  <p id="app-ready-error" className="text-[12px] text-destructive">
+                    {errors.operationalReadinessPercent}
+                  </p>
+                ) : (
+                  <p id="app-ready-hint" className="text-[11px] text-muted-foreground">
+                    نسبة صحيحة بين ٠ و١٠٠
+                  </p>
                 )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="app-sort">ترتيب العرض</Label>
                 <Input
                   id="app-sort"
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="-?[0-9]*"
+                  autoComplete="off"
+                  dir="ltr"
+                  className="text-start tabular"
                   value={draft.sortOrder}
                   onChange={(e) => set("sortOrder", e.target.value)}
+                  aria-invalid={Boolean(errors.sortOrder)}
+                  aria-describedby={errors.sortOrder ? "app-sort-error" : undefined}
                 />
+                {errors.sortOrder && (
+                  <p id="app-sort-error" className="text-[12px] text-destructive">
+                    {errors.sortOrder}
+                  </p>
+                )}
               </div>
             </div>
 

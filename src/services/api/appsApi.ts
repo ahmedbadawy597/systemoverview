@@ -10,7 +10,13 @@ import type {
   WorkspaceApp,
   WorkspaceAppsSummary,
 } from "@/domain/app"
-import { apiRequest, apiRequestWithMeta, ApiError, type DuplicateAppRef } from "./http"
+import {
+  apiRequest,
+  apiRequestWithMeta,
+  ApiError,
+  type ApiValidationDetail,
+  type DuplicateAppRef,
+} from "./http"
 
 export type AppStatusFilter = AppPublishStatus | "all"
 
@@ -31,7 +37,13 @@ export interface AppPage {
 
 export type AppMutateResult =
   | { ok: true; app: WorkspaceApp }
-  | { ok: false; error: string; code?: string; existing?: DuplicateAppRef }
+  | {
+      ok: false
+      error: string
+      code?: string
+      existing?: DuplicateAppRef
+      fieldErrors?: ApiValidationDetail[]
+    }
 
 export type DuplicateCheckResult = {
   id: string
@@ -80,6 +92,7 @@ function fail(error: unknown, fallback: string): AppMutateResult {
       error: error.message || fallback,
       code: error.code,
       existing: error.existing,
+      fieldErrors: error.details?.length ? error.details : undefined,
     }
   }
   return { ok: false, error: fallback }

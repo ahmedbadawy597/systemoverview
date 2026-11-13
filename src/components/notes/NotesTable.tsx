@@ -8,6 +8,7 @@ import type { Ticket } from "@/domain/ticket"
 import { formatId, formatNumber, formatShortDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
+import { AuthenticatedImage } from "./AuthenticatedImage"
 import { ImageLightbox } from "./ImageLightbox"
 import { NoteActionsMenu } from "./NoteActionsMenu"
 import { StatusBadge } from "./StatusBadge"
@@ -212,7 +213,12 @@ function ImagesCell({ ticket, onOpen }: { ticket: Ticket; onOpen: (index: number
       aria-label={`معاينة ${formatNumber(ticket.images.length)} صورة`}
     >
       <span className="relative size-9 overflow-hidden rounded-md ring-1 ring-line">
-        <img src={ticket.images[0]} alt="" className={cn("size-full object-cover transition-transform group-hover/img:scale-105")} loading="lazy" />
+        <AuthenticatedImage
+          src={ticket.images[0]}
+          alt=""
+          className={cn("size-full object-cover transition-transform group-hover/img:scale-105")}
+          loading="lazy"
+        />
       </span>
       {ticket.images.length > 1 && (
         <span className="tabular text-xs font-semibold text-muted-foreground">+{formatNumber(ticket.images.length - 1)}</span>

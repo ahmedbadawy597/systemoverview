@@ -1,4 +1,4 @@
-import { forwardRef, useEffect } from "react"
+import { forwardRef, useEffect, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Clock, Loader2, Save } from "lucide-react"
 import { Controller, useForm } from "react-hook-form"
@@ -9,8 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { DEV_LABELS, DEV_ORDER, type DevStatus, type Ticket } from "@/domain/ticket"
 import { useUpdateDevReview } from "@/hooks/useTickets"
+import {
+  focusFirstFormError,
+  localizeNoteFieldMessage,
+  mapApiDetailsToFormErrors,
+  NOTE_FORM_FIELD_IDS,
+  NOTE_FORM_FIELD_MAP,
+} from "@/lib/apiFieldErrors"
 import { formatDateTime, formatNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { ApiError } from "@/services/api/http"
 import { useAuth } from "@/services/auth/AuthProvider"
 import { DEV_TONE } from "./StatusBadge"
 
@@ -42,6 +50,7 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
   const { can } = useAuth()
   const allowed = can("devReview")
   const update = useUpdateDevReview()
+  const [formError, setFormError] = useState<string | null>(null)
 
   const {
     control,
@@ -49,6 +58,8 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
     handleSubmit,
     reset,
     watch,
+    setError,
+    clearErrors,
     formState: { errors, isDirty },
   } = useForm<Values>({
     resolver: zodResolver(schema),
@@ -57,18 +68,59 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
 
   useEffect(() => {
     reset({ devStatus: ticket.devStatus, devNotes: ticket.devNotes })
+    setFormError(null)
   }, [ticket.id, ticket.devStatus, ticket.devNotes, reset])
 
   const notesLength = watch("devNotes")?.length ?? 0
   const fieldId = `dev-${ticket.id}`
+  const notesFieldId = `${fieldId}-notes`
 
   const submit = handleSubmit(async (values) => {
-    if (!allowed) return
-    update.mutate({ id: ticket.id, ...values }, { onSuccess: () => onSaved?.() })
+    if (!allowed || update.isPending) return
+    setFormError(null)
+    clearErrors()
+    try {
+      await update.mutateAsync({ id: ticket.id, ...values })
+      onSaved?.()
+    } catch (error) {
+      if (error instanceof ApiError && error.details?.length) {
+        const { fieldErrors, unmapped } = mapApiDetailsToFormErrors(
+          error.details,
+          NOTE_FORM_FIELD_MAP,
+          localizeNoteFieldMessage,
+        )
+        const focusMap: Record<string, string> = {}
+        for (const [key, message] of Object.entries(fieldErrors)) {
+          if (key === "devNotes" || key === "devStatus") {
+            setError(key, { type: "server", message })
+            focusMap[key] = message
+          }
+        }
+        if (!Object.keys(fieldErrors).length) {
+          setFormError(error.message || unmapped[0] || "تعذّر حفظ المراجعة.")
+        } else if (unmapped.length) {
+          setFormError(unmapped[0])
+        }
+        queueMicrotask(() =>
+          focusFirstFormError(focusMap, {
+            ...NOTE_FORM_FIELD_IDS,
+            devNotes: notesFieldId,
+          }),
+        )
+        return
+      }
+      setFormError(error instanceof Error ? error.message : "تعذّر حفظ المراجعة.")
+    }
   })
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-5">
+      {formError && (
+        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-destructive">
+          {formError}
+        </p>
+      )}
+
       <div className="grid gap-2">
         <Label id={`${fieldId}-status-label`} className="text-[13px] font-bold">
           حالة المبرمجين
@@ -77,8 +129,21 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
           control={control}
           name="devStatus"
           render={({ field }) => (
-            <Select value={field.value} onValueChange={(v) => field.onChange(v as DevStatus)} disabled={!allowed || update.isPending}>
-              <SelectTrigger ref={statusRef} className="w-full" aria-labelledby={`${fieldId}-status-label`}>
+            <Select
+              value={field.value}
+              onValueChange={(v) => {
+                clearErrors("devStatus")
+                setFormError(null)
+                field.onChange(v as DevStatus)
+              }}
+              disabled={!allowed || update.isPending}
+            >
+              <SelectTrigger
+                ref={statusRef}
+                className="w-full"
+                aria-labelledby={`${fieldId}-status-label`}
+                aria-invalid={Boolean(errors.devStatus)}
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">
@@ -92,11 +157,14 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
             </Select>
           )}
         />
+        {errors.devStatus && (
+          <p className="text-[13px] text-danger">{errors.devStatus.message}</p>
+        )}
       </div>
 
       <div className="grid gap-2">
         <div className="flex items-baseline justify-between">
-          <Label htmlFor={`${fieldId}-notes`} className="text-[13px] font-bold">
+          <Label htmlFor={notesFieldId} className="text-[13px] font-bold">
             ملاحظات المبرمجين
           </Label>
           <span className="tabular text-xs text-muted-foreground" aria-hidden>
@@ -104,14 +172,19 @@ export const DeveloperReviewForm = forwardRef<HTMLButtonElement, DeveloperReview
           </span>
         </div>
         <Textarea
-          id={`${fieldId}-notes`}
+          id={notesFieldId}
           rows={compact ? 4 : 5}
           maxLength={NOTES_MAX}
           placeholder="اكتب التفاصيل الفنية: سبب المشكلة، وما تم أو ما سيتم لمعالجتها…"
           disabled={!allowed || update.isPending}
           aria-invalid={Boolean(errors.devNotes)}
           aria-describedby={errors.devNotes ? `${fieldId}-notes-error` : undefined}
-          {...register("devNotes")}
+          {...register("devNotes", {
+            onChange: () => {
+              clearErrors("devNotes")
+              setFormError(null)
+            },
+          })}
         />
         {errors.devNotes && (
           <p id={`${fieldId}-notes-error`} className="text-[13px] text-danger">

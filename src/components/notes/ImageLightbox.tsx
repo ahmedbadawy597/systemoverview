@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Download, X } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { Button } from "@/components/ui/button"
 import { formatNumber } from "@/lib/format"
+import { useAuthenticatedImage } from "@/hooks/useAuthenticatedImage"
+import { AuthenticatedImage } from "./AuthenticatedImage"
 
 interface ImageLightboxProps {
   images: string[]
@@ -13,6 +15,8 @@ interface ImageLightboxProps {
 
 export function ImageLightbox({ images, index, title, onClose }: ImageLightboxProps) {
   const [current, setCurrent] = useState(index ?? 0)
+  const currentSrc = images[current]
+  const { src: downloadSrc } = useAuthenticatedImage(currentSrc)
 
   useEffect(() => {
     if (index !== null) setCurrent(index)
@@ -42,9 +46,9 @@ export function ImageLightbox({ images, index, title, onClose }: ImageLightboxPr
               </DialogPrimitive.Description>
             </div>
             <div className="flex items-center gap-1">
-              {images[current] && (
+              {downloadSrc && (
                 <Button asChild variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white">
-                  <a href={images[current]} download={`note-image-${current + 1}.jpg`} aria-label="تنزيل الصورة">
+                  <a href={downloadSrc} download={`note-image-${current + 1}.jpg`} aria-label="تنزيل الصورة">
                     <Download className="size-5" />
                   </a>
                 </Button>
@@ -58,9 +62,9 @@ export function ImageLightbox({ images, index, title, onClose }: ImageLightboxPr
           </div>
 
           <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-6 sm:px-20" onClick={onClose}>
-            {images[current] && (
-              <img
-                src={images[current]}
+            {currentSrc && (
+              <AuthenticatedImage
+                src={currentSrc}
                 alt={`${title ?? "صورة الملاحظة"} — صورة ${current + 1}`}
                 className="max-h-full max-w-full rounded-lg object-contain"
                 onClick={(e) => e.stopPropagation()}
@@ -100,14 +104,14 @@ export function ImageLightbox({ images, index, title, onClose }: ImageLightboxPr
             <div className="flex justify-center gap-2 overflow-x-auto px-4 pb-5">
               {images.map((src, i) => (
                 <button
-                  key={i}
+                  key={`${src}-${i}`}
                   type="button"
                   onClick={() => setCurrent(i)}
                   className={`size-14 flex-none overflow-hidden rounded-md ring-2 transition ${i === current ? "ring-gold-light" : "opacity-60 ring-transparent hover:opacity-100"}`}
                   aria-label={`عرض الصورة ${i + 1}`}
                   aria-current={i === current}
                 >
-                  <img src={src} alt="" className="size-full object-cover" />
+                  <AuthenticatedImage src={src} alt="" className="size-full object-cover" />
                 </button>
               ))}
             </div>

@@ -23,7 +23,8 @@ const NEST_ENDPOINTS = [
   { name: "PATCH /tickets/:id/dev-review", use: "مراجعة المبرمجين" },
   { name: "DELETE /tickets/:id", use: "حذف ملاحظة" },
   { name: "GET /users", use: "إدارة المستخدمين" },
-  { name: "POST /reports/notes/pdf", use: "إصدار تقرير PDF رسمي" },
+  { name: "POST /reports/notes/pdf", use: "إصدار تقرير PDF رسمي (تنزيل ثنائي)" },
+  { name: "POST /reports/notes/preview", use: "معاينة HTML الرسمية للتقرير" },
 ]
 
 export function SettingsPage() {

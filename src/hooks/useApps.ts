@@ -51,8 +51,10 @@ export function useCreateApp() {
     mutationFn: (input: CreateAppInput) => appsApi.create(input),
     onSuccess: (result) => {
       if (!result.ok) {
-        // DUPLICATE_APP is handled in the form (offer edit existing).
-        if (result.code !== "DUPLICATE_APP") toast.error(result.error)
+        // DUPLICATE_APP + field validation are surfaced inline on the form.
+        if (result.code !== "DUPLICATE_APP" && !result.fieldErrors?.length) {
+          toast.error(result.error)
+        }
         return
       }
       toast.success(result.app.publishStatus === "published" ? "تم إنشاء التطبيق ونشره." : "تم حفظ التطبيق كمسودة.")
@@ -67,7 +69,9 @@ export function useUpdateApp() {
     mutationFn: ({ id, input }: { id: string; input: UpdateAppInput }) => appsApi.update(id, input),
     onSuccess: (result) => {
       if (!result.ok) {
-        if (result.code !== "DUPLICATE_APP") toast.error(result.error)
+        if (result.code !== "DUPLICATE_APP" && !result.fieldErrors?.length) {
+          toast.error(result.error)
+        }
         return
       }
       toast.success("تم حفظ تعديلات التطبيق.")

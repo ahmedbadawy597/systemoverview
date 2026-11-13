@@ -1,5 +1,6 @@
 import { forwardRef } from "react"
 import { LOGO_SRC } from "@/components/brand/Logo"
+import { AuthenticatedImage } from "@/components/notes/AuthenticatedImage"
 import { computeStats, type TicketFilters } from "@/domain/stats"
 import { APPROVAL_LABELS, DEV_LABELS, type Ticket } from "@/domain/ticket"
 import { formatDate, formatDateTime, formatId, formatNumber, formatShortDate } from "@/lib/format"
@@ -122,7 +123,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
               </h3>
               <div className="grid">
                 {t.images.map((src, i) => (
-                  <img key={i} src={src} alt={`صورة ${i + 1} من الملاحظة ${t.id}`} />
+                  <AuthenticatedImage key={i} src={src} alt={`صورة ${i + 1} من الملاحظة ${t.id}`} />
                 ))}
               </div>
             </section>

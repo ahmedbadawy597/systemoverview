@@ -1,5 +1,6 @@
-import { useState } from "react"
-import { BadgeCheck, ClipboardList, Eye, Hourglass, Printer, SearchCheck, SearchX, ShieldCheck } from "lucide-react"
+import { useEffect, useState } from "react"
+import { BadgeCheck, ClipboardList, Eye, Hourglass, Loader2, Printer, SearchCheck, SearchX, ShieldCheck } from "lucide-react"
+import { toast } from "sonner"
 import { EmptyState } from "@/components/common/EmptyState"
 import { ErrorState } from "@/components/common/ErrorState"
 import { StatCard } from "@/components/common/StatCard"
@@ -7,7 +8,7 @@ import { PageHeader, Panel, PanelHeader } from "@/components/layout/PageHeader"
 import { NoteFilters } from "@/components/notes/NoteFilters"
 import { NotesTable } from "@/components/notes/NotesTable"
 import { MonthlyChart } from "@/components/report/MonthlyChart"
-import { describeScope, PrintReport } from "@/components/report/PrintReport"
+import { describeScope } from "@/components/report/PrintReport"
 import { usePrintReport } from "@/components/report/PrintReportProvider"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -16,6 +17,7 @@ import { hasActiveFilters } from "@/domain/stats"
 import { useTicketList, useTicketStats } from "@/hooks/useTickets"
 import { useUrlFilters } from "@/hooks/useUrlFilters"
 import { formatNumber } from "@/lib/format"
+import { reportsApi } from "@/services/api/reportsApi"
 import { useAuth } from "@/services/auth/AuthProvider"
 
 const PAGE_SIZE = 6
@@ -26,7 +28,37 @@ export function ReportsPage() {
   const { filters, setFilters, clear } = useUrlFilters()
   const { requestPrint } = usePrintReport()
   const [previewing, setPreviewing] = useState(false)
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    if (!previewing) {
+      setPreviewHtml(null)
+      return
+    }
+    let cancelled = false
+    setPreviewLoading(true)
+    void reportsApi
+      .previewNotesHtml(filters, false)
+      .then((result) => {
+        if (!cancelled) setPreviewHtml(result.html)
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setPreviewing(false)
+          toast.error("تعذّر معاينة التقرير", {
+            description: error instanceof Error ? error.message : undefined,
+          })
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [previewing, filters])
 
   const filterQuery = {
     q: filters.query,
@@ -199,7 +231,7 @@ export function ReportsPage() {
           <DialogHeader className="flex-row items-center justify-between gap-4 border-b border-line-soft px-6 py-4 pe-14">
             <div className="grid gap-0.5">
               <DialogTitle>معاينة تقرير الملاحظات</DialogTitle>
-              <DialogDescription>معاينة واجهة — الإصدار الرسمي من زر الطباعة عبر الخادم</DialogDescription>
+              <DialogDescription>معاينة رسمية من الخادم — نفس محتوى ملف PDF</DialogDescription>
             </div>
             <Button
               size="sm"
@@ -207,15 +239,25 @@ export function ReportsPage() {
                 setPreviewing(false)
                 requestPrint({ filters })
               }}
+              disabled={previewLoading}
             >
               <Printer aria-hidden />
               طباعة
             </Button>
           </DialogHeader>
           <div className="overflow-y-auto bg-[#e9eeeb] p-4 sm:p-8" style={{ maxHeight: "calc(92dvh - 80px)" }}>
-            <div className="mx-auto w-full max-w-[210mm] bg-white p-[8mm] shadow-float sm:p-[14mm]">
-              <PrintReport tickets={chartTickets} filters={filters} generatedAt={new Date().toISOString()} includeImages={false} />
-            </div>
+            {previewLoading || !previewHtml ? (
+              <div className="flex min-h-[40vh] items-center justify-center gap-2 text-muted-foreground">
+                <Loader2 className="size-5 animate-spin" aria-hidden />
+                جارٍ تجهيز المعاينة من الخادم…
+              </div>
+            ) : (
+              <iframe
+                title="معاينة تقرير الملاحظات"
+                srcDoc={previewHtml}
+                className="mx-auto block h-[70vh] w-full max-w-[210mm] rounded-md border border-line bg-white shadow-float"
+              />
+            )}
           </div>
         </DialogContent>
       </Dialog>

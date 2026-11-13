@@ -233,14 +233,22 @@ function StatusOverview({ stats, loading }: { stats: TicketStats; loading: boole
             const ratio = stats.total ? row.value / stats.total : 0
             return (
               <div key={row.label} className="grid gap-1.5">
-                <div className="flex items-baseline justify-between gap-2 text-[13px]">
-                  <span className="text-foreground">{row.label}</span>
+                <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                  <span className="min-w-0 text-foreground">{row.label}</span>
                   {loading ? (
-                    <Skeleton className="h-3.5 w-14" />
+                    <Skeleton className="h-3.5 w-16" />
                   ) : (
-                    <span className="tabular font-bold text-foreground">
-                      {formatNumber(row.value)}
-                      <span className="ms-1.5 text-xs font-normal text-muted-foreground">{formatPercent(ratio)}</span>
+                    <span className="flex shrink-0 items-baseline gap-2">
+                      <span className="tabular font-bold text-foreground" dir="ltr" style={{ unicodeBidi: "isolate" }}>
+                        {formatNumber(row.value)}
+                      </span>
+                      <span
+                        className="tabular text-xs font-normal text-muted-foreground"
+                        dir="ltr"
+                        style={{ unicodeBidi: "isolate" }}
+                      >
+                        {formatPercent(ratio)}
+                      </span>
                     </span>
                   )}
                 </div>

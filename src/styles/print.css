@@ -240,3 +240,137 @@
   color: #333;
   text-align: center;
 }
+
+/* Access Credentials Report — printable document (.print-root) */
+.credentials-print-header {
+  display: grid;
+  grid-template-columns: 26mm 1fr 46mm;
+  align-items: center;
+  gap: 6mm;
+  padding-bottom: 4mm;
+  border-bottom: 2.2pt double #a18841;
+}
+
+.credentials-print-header img {
+  width: 26mm;
+  height: 26mm;
+  object-fit: contain;
+}
+
+.credentials-print-org {
+  text-align: center;
+  line-height: 1.55;
+}
+
+.credentials-print-country {
+  margin: 0;
+  font-size: 11pt;
+}
+
+.credentials-print-ministry {
+  margin: 0;
+  font-size: 17pt;
+  font-weight: 700;
+  color: #0f3a32;
+}
+
+.credentials-print-system {
+  margin: 0;
+  font-size: 11pt;
+  color: #222;
+}
+
+.credentials-print-meta {
+  font-size: 8.5pt;
+  line-height: 1.8;
+  text-align: start;
+}
+
+.credentials-print-meta p {
+  margin: 0;
+}
+
+.credentials-print-title {
+  margin: 6mm 0 1.5mm;
+  text-align: center;
+  font-size: 18pt;
+  font-weight: 700;
+  color: #0f3a32;
+}
+
+.credentials-print-scope {
+  margin: 0 0 5mm;
+  text-align: center;
+  font-size: 9pt;
+  color: #222;
+}
+
+.credentials-print-empty {
+  border: 0.75pt solid #777;
+  padding: 6mm;
+  text-align: center;
+}
+
+.credentials-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 9pt;
+}
+
+.credentials-print-table thead {
+  display: table-header-group;
+}
+
+.credentials-print-table tbody {
+  display: table-row-group;
+}
+
+.credentials-print-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.credentials-print-table th {
+  background: #eef3f0;
+  border: 0.75pt solid #555;
+  padding: 1.8mm 1.6mm;
+  font-weight: 700;
+  text-align: start;
+  vertical-align: middle;
+}
+
+.credentials-print-table td {
+  border: 0.75pt solid #777;
+  padding: 1.8mm 1.6mm;
+  vertical-align: top;
+  text-align: start;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.credentials-print-table .num {
+  width: 10mm;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.credentials-print-table .app-name {
+  font-weight: 700;
+}
+
+.credentials-print-table .mono {
+  font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
+  font-size: 8.5pt;
+  direction: ltr;
+  unicode-bidi: isolate;
+  word-break: break-all;
+}
+
+.credentials-print-footer {
+  margin-top: 6mm;
+  font-size: 8pt;
+  color: #333;
+  text-align: center;
+}

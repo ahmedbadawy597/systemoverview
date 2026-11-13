@@ -41,18 +41,15 @@ export function AddNotePage() {
         <NoteForm
           submitting={addTicket.isPending}
           onCancel={(dirty) => (dirty ? setConfirmLeave(true) : navigate("/notes"))}
-          onSubmit={(input) =>
-            addTicket.mutate(input, {
-              onSuccess: (created) => {
-                toast.success("تم حفظ الملاحظة بنجاح", {
-                  description: created
-                    ? `سُجلت برقم ${formatId(created.id)} وهي الآن بانتظار التصديق.`
-                    : "سُجلت الملاحظة وهي الآن بانتظار التصديق.",
-                })
-                navigate(created ? `/notes/${encodeURIComponent(created.id)}` : "/notes")
-              },
+          onSubmit={async (input) => {
+            const created = await addTicket.mutateAsync(input)
+            toast.success("تم حفظ الملاحظة بنجاح", {
+              description: created
+                ? `سُجلت برقم ${formatId(created.id)} وهي الآن بانتظار التصديق.`
+                : "سُجلت الملاحظة وهي الآن بانتظار التصديق.",
             })
-          }
+            navigate(created ? `/notes/${encodeURIComponent(created.id)}` : "/notes")
+          }}
         />
       </Panel>
 

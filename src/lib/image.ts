@@ -6,11 +6,44 @@ export interface CompressedImage {
   height: number
 }
 
-export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]
+/** Raster formats accepted by the Add Note image field (SVG is never accepted). */
+export const ACCEPTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+] as const
+
+export const ACCEPTED_IMAGE_ACCEPT =
+  "image/jpeg,image/jpg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif"
+
 export const MAX_SOURCE_BYTES = 15 * 1024 * 1024
+
+export function isRejectedImageFile(file: File): boolean {
+  const mime = (file.type || "").toLowerCase()
+  const name = file.name || ""
+  if (mime.includes("svg") || mime.includes("xml") || /\.svg$/i.test(name)) {
+    return true
+  }
+  if (mime && !mime.startsWith("image/")) {
+    return true
+  }
+  if (mime && !(ACCEPTED_IMAGE_TYPES as readonly string[]).includes(mime)) {
+    return true
+  }
+  return false
+}
 
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
+    if (isRejectedImageFile(file)) {
+      reject(new Error("صيغة SVG أو الملفات غير النقطية غير مدعومة. استخدم JPG أو PNG أو WEBP."))
+      return
+    }
     const url = URL.createObjectURL(file)
     const img = new Image()
     img.onload = () => {

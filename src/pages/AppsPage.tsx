@@ -212,7 +212,8 @@ function AppCard({
 export function AppsPage() {
   const { canViewApps, canManageApps, canPublishApps } = useAuth()
   const [q, setQ] = useState("")
-  const [status, setStatus] = useState<AppStatusFilter>("all")
+  /** Active lifecycle filters only — archive is not a supported UI workflow. */
+  const [status, setStatus] = useState<"all" | "published" | "draft">("all")
   const [credentialsApp, setCredentialsApp] = useState<WorkspaceApp | null>(null)
   const query = useMemo(
     () => ({
@@ -370,7 +371,10 @@ export function AppsPage() {
               />
             </div>
             {canManageApps && (
-              <Select value={status} onValueChange={(v) => setStatus(v as AppStatusFilter)}>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as "all" | "published" | "draft")}
+              >
                 <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="الحالة" />
                 </SelectTrigger>
@@ -378,7 +382,6 @@ export function AppsPage() {
                   <SelectItem value="all">كل الحالات</SelectItem>
                   <SelectItem value="published">منشور</SelectItem>
                   <SelectItem value="draft">مسودة</SelectItem>
-                  <SelectItem value="archived">مؤرشف</SelectItem>
                 </SelectContent>
               </Select>
             )}

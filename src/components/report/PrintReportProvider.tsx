@@ -22,6 +22,18 @@ interface PrintRequest {
 
 const Ctx = createContext<{ requestPrint: (request?: PrintRequest) => void } | null>(null)
 
+function triggerBlobDownload(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = fileName
+  anchor.rel = "noopener"
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
+}
+
 export function PrintReportProvider({ children }: { children: ReactNode }) {
   const { ensure } = useAuth()
   const [request, setRequest] = useState<PrintRequest | null>(null)
@@ -39,13 +51,13 @@ export function PrintReportProvider({ children }: { children: ReactNode }) {
   )
 
   async function confirmPrint() {
-    if (!request) return
+    if (!request || busy) return
     setBusy(true)
     try {
       const filters = request.filters ?? EMPTY_FILTERS
       const result = await reportsApi.generateNotesPdf(filters, includeImages)
+      triggerBlobDownload(result.blob, result.fileName)
       toast.success("تم إصدار التقرير الرسمي")
-      window.open(result.url, "_blank", "noopener,noreferrer")
       setRequest(null)
     } catch (error) {
       toast.error("تعذّر إصدار التقرير", {
@@ -78,6 +90,7 @@ export function PrintReportProvider({ children }: { children: ReactNode }) {
                 checked={includeImages}
                 onCheckedChange={(v) => setIncludeImages(v === true)}
                 className="mt-0.5"
+                disabled={busy}
               />
               <Label htmlFor="print-include-images" className="grid gap-0.5 text-[13px] leading-6 font-medium">
                 <span className="flex items-center gap-1.5">
