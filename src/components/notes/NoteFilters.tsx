@@ -29,8 +29,9 @@ export function NoteFilters({
   searchPlaceholder = "ابحث باسم الملاحظة أو وصفها أو رقمها…",
   className,
 }: NoteFiltersProps) {
-  const { canViewApps } = useAuth()
-  const appsQuery = useAppsList({ page: 1, limit: 100, status: "published" }, canViewApps && fields.includes("app"))
+  const { can } = useAuth()
+  const canPickApp = can("view")
+  const appsQuery = useAppsList({ page: 1, limit: 100, status: "published" }, canPickApp && fields.includes("app"))
   const apps = useMemo(() => appsQuery.data?.items ?? [], [appsQuery.data])
   const [query, setQuery] = useState(filters.query)
 
@@ -66,7 +67,7 @@ export function NoteFilters({
       )}
 
       <div className="flex flex-wrap items-end gap-3 max-sm:w-full">
-        {show("app") && canViewApps && (
+        {show("app") && canPickApp && (
           <div className="grid min-w-[180px] flex-1 gap-1.5 sm:flex-none">
             <Label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground" id="filter-app-label">
               <AppWindow className="size-3.5" aria-hidden />

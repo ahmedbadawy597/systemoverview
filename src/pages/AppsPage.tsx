@@ -350,9 +350,9 @@ export function AppsPage() {
         />
       </div>
 
-      <Panel className="overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="grid gap-0.5">
+      <Panel className="min-w-0 overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="grid min-w-0 gap-0.5">
             <h2 className="font-heading text-[17px] font-bold text-foreground">بطاقات التطبيقات</h2>
             <p className="text-[13px] text-muted-foreground">
               {canManageApps
@@ -361,7 +361,7 @@ export function AppsPage() {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative min-w-[220px]">
+            <div className="relative w-full min-w-0 sm:max-w-[260px] sm:flex-1">
               <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
               <Input
                 value={q}

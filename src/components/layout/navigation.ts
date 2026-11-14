@@ -38,7 +38,8 @@ export const APPS_NAV: NavItem = {
   label: "التطبيقات",
   icon: LayoutGrid,
   end: true,
-  permission: "view",
+  /** Shown for assistants/admins via Sidebar; other roles need `view`. */
+  permission: "manageApps",
 }
 
 export const CREDENTIALS_NAV: NavItem = {

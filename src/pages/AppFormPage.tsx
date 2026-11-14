@@ -286,7 +286,7 @@ export function AppFormPage() {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-6">
+    <div className="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
       <PageHeader
         title={title}
         description="عبّئ بيانات التطبيق وواجهات الدخول الفنية، ثم احفظ كمسودة أو انشر لواجهة الوزير (بدون كلمات المرور)."

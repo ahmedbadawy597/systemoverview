@@ -25,7 +25,7 @@ import { SettingsPage } from "@/pages/SettingsPage"
 import { UsersPage } from "@/pages/UsersPage"
 import { AuthProvider, useAuth } from "@/services/auth/AuthProvider"
 
-/** Apps catalog browse — any role with view. */
+/** Apps workspace — assistant job title or system admin only. */
 function RequireViewApps() {
   const { canViewApps } = useAuth()
   if (!canViewApps) return <Navigate to="/" replace />

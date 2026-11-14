@@ -223,10 +223,10 @@ export function CredentialsReportPage() {
         />
       )}
 
-      <Panel className="overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="grid gap-1">
-            <h2 className="font-heading text-[17px] font-bold text-foreground">
+      <Panel className="min-w-0 overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid min-w-0 gap-1">
+            <h2 className="font-heading text-[16px] font-bold text-foreground sm:text-[17px]">
               تقرير بيانات الوصول والحسابات للأنظمة
             </h2>
             <p className="text-[13px] text-muted-foreground">
@@ -239,8 +239,8 @@ export function CredentialsReportPage() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative min-w-[220px]">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto">
+            <div className="relative w-full min-w-0 sm:max-w-[260px] sm:flex-1">
               <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-faint" aria-hidden />
               <Input
                 value={q}
@@ -249,36 +249,39 @@ export function CredentialsReportPage() {
                 className="ps-9"
               />
             </div>
-            <Button
-              variant="outline"
-              disabled={loading || !filtered.length}
-              onClick={() => {
-                downloadCsv(filtered)
-                toast.success("تم تصدير التقرير (CSV)")
-              }}
-            >
-              <FileSpreadsheet className="size-4" aria-hidden />
-              تصدير (CSV)
-            </Button>
-            <Button disabled={loading || isPrinting} onClick={() => void handlePrint()}>
-              {isPrinting ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <Printer className="size-4" aria-hidden />
-              )}
-              طباعة التقرير
-            </Button>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                disabled={loading || !filtered.length}
+                onClick={() => {
+                  downloadCsv(filtered)
+                  toast.success("تم تصدير التقرير (CSV)")
+                }}
+              >
+                <FileSpreadsheet className="size-4" aria-hidden />
+                تصدير (CSV)
+              </Button>
+              <Button className="w-full sm:w-auto" disabled={loading || isPrinting} onClick={() => void handlePrint()}>
+                {isPrinting ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Printer className="size-4" aria-hidden />
+                )}
+                طباعة التقرير
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="p-0">
+        <div className="min-w-0 p-0">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
               <Loader2 className="size-5 animate-spin" aria-hidden />
               جارٍ تحميل بيانات الواجهات…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="p-8">
+            <div className="p-6 sm:p-8">
               <EmptyState
                 icon={KeyRound}
                 title={q ? "لا توجد نتائج للتصفية" : "لا توجد واجهات مسجّلة"}
@@ -295,68 +298,152 @@ export function CredentialsReportPage() {
               />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-surface-soft/70">
-                  <TableHead className="w-12 text-center">#</TableHead>
-                  <TableHead>اسم التطبيق</TableHead>
-                  <TableHead>الواجهة المستهدفة</TableHead>
-                  <TableHead>الرابط المخصص</TableHead>
-                  <TableHead>اسم المستخدم</TableHead>
-                  <TableHead>كلمة المرور</TableHead>
-                  <TableHead className="text-center">إجراء</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile: stacked credential cards */}
+              <ul className="grid gap-3 p-4 md:hidden">
                 {filtered.map((row, index) => (
-                  <TableRow key={row.key}>
-                    <TableCell className="text-center tabular text-muted-foreground">{formatNumber(index + 1)}</TableCell>
-                    <TableCell className="font-semibold text-foreground">
-                      <Link to={`/apps/${row.appId}/edit`} className="hover:text-brand hover:underline">
-                        {row.appName}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
+                  <li
+                    key={row.key}
+                    className="grid min-w-0 gap-3 rounded-xl border border-line bg-surface-soft/40 p-3.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="grid min-w-0 gap-1">
+                        <p className="text-[11px] font-semibold text-muted-foreground">#{formatNumber(index + 1)}</p>
+                        <Link
+                          to={`/apps/${row.appId}/edit`}
+                          className="truncate text-[14px] font-bold text-foreground hover:text-brand hover:underline"
+                        >
+                          {row.appName}
+                        </Link>
+                      </div>
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-md px-2 py-1 text-[11px] font-bold ring-1 ring-inset",
+                          "inline-flex shrink-0 items-center rounded-md px-2 py-1 text-[11px] font-bold ring-1 ring-inset",
                           roleTone(row.label),
                         )}
                       >
                         {row.label}
                       </span>
-                    </TableCell>
-                    <TableCell className="max-w-[220px] break-all font-mono text-[12px]" dir="ltr">
-                      {row.url ? (
-                        <a href={row.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">
-                          {row.url}
+                    </div>
+
+                    <dl className="grid gap-2 text-[12.5px]">
+                      <div className="grid min-w-0 gap-0.5">
+                        <dt className="text-muted-foreground">الرابط المخصص</dt>
+                        <dd className="min-w-0 break-all font-mono text-[12px]" dir="ltr">
+                          {row.url ? (
+                            <a href={row.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                              {row.url}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </dd>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="grid min-w-0 gap-0.5">
+                          <dt className="text-muted-foreground">اسم المستخدم</dt>
+                          <dd className="break-all font-mono text-[13px]" dir="ltr">
+                            {row.username || "—"}
+                          </dd>
+                        </div>
+                        <div className="grid min-w-0 gap-0.5">
+                          <dt className="text-muted-foreground">كلمة المرور</dt>
+                          <dd className="break-all font-mono text-[13px] font-semibold text-amber-800" dir="ltr">
+                            {row.password || "—"}
+                          </dd>
+                        </div>
+                      </div>
+                    </dl>
+
+                    {row.url ? (
+                      <Button asChild size="sm" className="h-9 w-full">
+                        <a href={row.url} target="_blank" rel="noreferrer">
+                          انتقال
+                          <ExternalLink className="size-3.5" aria-hidden />
                         </a>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-[13px]" dir="ltr">
-                      {row.username || "—"}
-                    </TableCell>
-                    <TableCell className="font-mono text-[13px] font-semibold text-amber-800" dir="ltr">
-                      {row.password || "—"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {row.url ? (
-                        <Button asChild size="sm" className="h-8">
-                          <a href={row.url} target="_blank" rel="noreferrer">
-                            انتقال
-                            <ExternalLink className="size-3.5" aria-hidden />
-                          </a>
-                        </Button>
-                      ) : (
-                        <span className="text-[12px] text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                      </Button>
+                    ) : null}
+                  </li>
                 ))}
-              </TableBody>
-            </Table>
+              </ul>
+
+              {/* Tablet/desktop: scrollable table */}
+              <div className="hidden md:block">
+                <Table className="min-w-[920px]">
+                  <TableHeader>
+                    <TableRow className="bg-surface-soft/70">
+                      <TableHead className="w-12 text-center">#</TableHead>
+                      <TableHead className="min-w-[160px]">اسم التطبيق</TableHead>
+                      <TableHead className="min-w-[120px]">الواجهة المستهدفة</TableHead>
+                      <TableHead className="min-w-[220px]">الرابط المخصص</TableHead>
+                      <TableHead className="min-w-[120px]">اسم المستخدم</TableHead>
+                      <TableHead className="min-w-[120px]">كلمة المرور</TableHead>
+                      <TableHead className="w-[100px] text-center">إجراء</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((row, index) => (
+                      <TableRow key={row.key}>
+                        <TableCell className="text-center tabular text-muted-foreground">
+                          {formatNumber(index + 1)}
+                        </TableCell>
+                        <TableCell className="max-w-[220px] whitespace-normal font-semibold text-foreground">
+                          <Link
+                            to={`/apps/${row.appId}/edit`}
+                            className="line-clamp-2 hover:text-brand hover:underline"
+                          >
+                            {row.appName}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="whitespace-normal">
+                          <span
+                            className={cn(
+                              "inline-flex max-w-full items-center rounded-md px-2 py-1 text-[11px] font-bold ring-1 ring-inset",
+                              roleTone(row.label),
+                            )}
+                          >
+                            {row.label}
+                          </span>
+                        </TableCell>
+                        <TableCell
+                          className="max-w-[280px] whitespace-normal break-all font-mono text-[12px]"
+                          dir="ltr"
+                        >
+                          {row.url ? (
+                            <a href={row.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                              {row.url}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[160px] whitespace-normal break-all font-mono text-[13px]" dir="ltr">
+                          {row.username || "—"}
+                        </TableCell>
+                        <TableCell
+                          className="max-w-[160px] whitespace-normal break-all font-mono text-[13px] font-semibold text-amber-800"
+                          dir="ltr"
+                        >
+                          {row.password || "—"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {row.url ? (
+                            <Button asChild size="sm" className="h-8">
+                              <a href={row.url} target="_blank" rel="noreferrer">
+                                انتقال
+                                <ExternalLink className="size-3.5" aria-hidden />
+                              </a>
+                            </Button>
+                          ) : (
+                            <span className="text-[12px] text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </div>
       </Panel>

@@ -56,8 +56,9 @@ export function NoteForm({ submitting, onSubmit, onCancel }: NoteFormProps) {
   const [images, setImages] = useState<UploadItem[]>([])
   const [imagesError, setImagesError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
-  const { canViewApps } = useAuth()
-  const appsQuery = useAppsList({ page: 1, limit: 100, status: "published" }, canViewApps)
+  const { can } = useAuth()
+  const canPickApp = can("view")
+  const appsQuery = useAppsList({ page: 1, limit: 100, status: "published" }, canPickApp)
   const apps = useMemo(() => appsQuery.data?.items ?? [], [appsQuery.data])
   const {
     register,

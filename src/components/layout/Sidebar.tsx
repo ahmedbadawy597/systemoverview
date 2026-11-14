@@ -20,7 +20,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggleCollapsed, onNavigate, className }: SidebarProps) {
   const { data: stats } = useTicketStats()
-  const { user, signOut, can, canViewApps, canManageApps } = useAuth()
+  const { user, signOut, can, canManageApps } = useAuth()
   const navigate = useNavigate()
   const counts = {
     pendingApproval: stats?.pending ?? 0,
@@ -29,7 +29,8 @@ export function Sidebar({ collapsed = false, onToggleCollapsed, onNavigate, clas
 
   const mainItems = [
     ...MAIN_NAV.filter((item) => !item.permission || can(item.permission)),
-    ...(canViewApps ? [APPS_NAV] : []),
+    // Assistants (and admins) always get التطبيقات after login; other roles need view.
+    ...(canManageApps ? [APPS_NAV] : []),
   ]
   const adminItems = [
     canManageApps ? CREDENTIALS_NAV : null,

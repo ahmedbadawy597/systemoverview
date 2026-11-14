@@ -11,10 +11,13 @@ interface AuthContextValue {
   loading: boolean
   /** Highest system role — kept for compact UI badges. */
   role: PublicUser["primaryRole"] | null
-  login: (username: string, password: string) => Promise<{ ok: true } | { ok: false; reason: "invalid" | "inactive" }>
+  login: (
+    username: string,
+    password: string,
+  ) => Promise<{ ok: true; user: PublicUser } | { ok: false; reason: "invalid" | "inactive" }>
   signOut: () => void
   can: (permission: Permission) => boolean
-  /** Browse apps dashboard (published cards) — any logged-in role with view. */
+  /** Apps workspace (`/#/apps`) — assistant job title or system admin only. */
   canViewApps: boolean
   /** Create/edit/credentials: assistant job title or system admin. */
   canManageApps: boolean
@@ -71,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await loginRequest(username, password)
     if (!result.ok) return result
     setUser(result.user)
-    return { ok: true as const }
+    return { ok: true as const, user: result.user }
   }, [])
 
   const signOut = useCallback(() => {
@@ -79,10 +82,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  const canViewApps = Boolean(user?.permissions.includes("view"))
+  /** Create/edit/credentials + apps nav: assistant job title or system admin. */
   const canManageApps = Boolean(
     user && (user.jobTitle === "assistant" || user.roles.includes("admin")),
   )
+  /** `/#/apps` is only for assistant (مساعد) or system admin — not every logged-in role. */
+  const canViewApps = canManageApps
   const canPublishApps = user?.jobTitle === "assistant"
 
   const can = useCallback(

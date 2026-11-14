@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react"
 import { ArrowLeft, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import { Logo } from "@/components/brand/Logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,6 +9,7 @@ import { useAuth } from "@/services/auth/AuthProvider"
 
 export function LoginPage() {
   const { login } = useAuth()
+  const navigate = useNavigate()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -26,7 +28,11 @@ export function LoginPage() {
       const result = await login(username, password)
       if (!result.ok) {
         setError(result.reason === "inactive" ? "هذا الحساب موقوف. راجع مدير النظام." : "اسم المستخدم أو كلمة المرور غير صحيحة.")
+        return
       }
+      // Assistant workspace: land on applications after login.
+      const next = result.user.jobTitle === "assistant" || result.user.roles.includes("admin") ? "/apps" : "/"
+      navigate(next, { replace: true })
     } catch (error) {
       setError(error instanceof Error ? error.message : "تعذّر الاتصال بالخادم.")
     } finally {
