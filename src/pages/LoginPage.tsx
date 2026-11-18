@@ -30,9 +30,7 @@ export function LoginPage() {
         setError(result.reason === "inactive" ? "هذا الحساب موقوف. راجع مدير النظام." : "اسم المستخدم أو كلمة المرور غير صحيحة.")
         return
       }
-      // Assistant workspace: land on applications after login.
-      const next = result.user.jobTitle === "assistant" || result.user.roles.includes("admin") ? "/apps" : "/"
-      navigate(next, { replace: true })
+      navigate("/", { replace: true })
     } catch (error) {
       setError(error instanceof Error ? error.message : "تعذّر الاتصال بالخادم.")
     } finally {

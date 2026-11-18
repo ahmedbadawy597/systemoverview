@@ -1,4 +1,4 @@
-import { ChevronDown, LayoutGrid, LogOut, Settings, ShieldCheck, Users } from "lucide-react"
+import { ChevronDown, LogOut, Settings, ShieldCheck, Users } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import {
   DropdownMenu,
@@ -31,7 +31,7 @@ export function RoleBadge() {
 }
 
 export function UserMenu() {
-  const { user, signOut, can, canViewApps } = useAuth()
+  const { user, signOut, can } = useAuth()
   const navigate = useNavigate()
   if (!user) return null
 
@@ -57,12 +57,6 @@ export function UserMenu() {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {canViewApps && (
-          <DropdownMenuItem onSelect={() => navigate("/apps")} className="h-9">
-            <LayoutGrid />
-            التطبيقات
-          </DropdownMenuItem>
-        )}
         {can("manageUsers") && (
           <DropdownMenuItem onSelect={() => navigate("/users")} className="h-9">
             <Users />
@@ -75,7 +69,7 @@ export function UserMenu() {
             الإعدادات
           </DropdownMenuItem>
         )}
-        {(canViewApps || can("manageUsers") || can("settings")) && <DropdownMenuSeparator />}
+        {(can("manageUsers") || can("settings")) && <DropdownMenuSeparator />}
         <DropdownMenuItem
           variant="destructive"
           className="h-9"

@@ -8,7 +8,7 @@ import { useTicketStats } from "@/hooks/useTickets"
 import { formatNumber } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/services/auth/AuthProvider"
-import { APPS_NAV, CREDENTIALS_NAV, MAIN_NAV, SETTINGS_NAV, USERS_NAV, type NavItem } from "./navigation"
+import { MAIN_NAV, SETTINGS_NAV, USERS_NAV, type NavItem } from "./navigation"
 
 interface SidebarProps {
   collapsed?: boolean
@@ -20,20 +20,15 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggleCollapsed, onNavigate, className }: SidebarProps) {
   const { data: stats } = useTicketStats()
-  const { user, signOut, can, canManageApps } = useAuth()
+  const { user, signOut, can } = useAuth()
   const navigate = useNavigate()
   const counts = {
     pendingApproval: stats?.pending ?? 0,
     openDev: stats ? stats.notReviewed + stats.underStudy : 0,
   }
 
-  const mainItems = [
-    ...MAIN_NAV.filter((item) => !item.permission || can(item.permission)),
-    // Assistants (and admins) always get التطبيقات after login; other roles need view.
-    ...(canManageApps ? [APPS_NAV] : []),
-  ]
+  const mainItems = MAIN_NAV.filter((item) => !item.permission || can(item.permission))
   const adminItems = [
-    canManageApps ? CREDENTIALS_NAV : null,
     can("manageUsers") ? USERS_NAV : null,
     can("settings") ? SETTINGS_NAV : null,
   ].filter(Boolean) as NavItem[]
