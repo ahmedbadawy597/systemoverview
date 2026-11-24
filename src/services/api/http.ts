@@ -18,6 +18,10 @@ export class ApiError extends Error {
   readonly code: string
   readonly existing?: DuplicateAppRef
   readonly details?: ApiValidationDetail[]
+  /** Server/support correlation id from body or X-Correlation-Id. */
+  readonly correlationId?: string
+  /** Parsed Retry-After header (seconds), when present. */
+  readonly retryAfterSeconds?: number
 
   constructor(
     message: string,
@@ -25,6 +29,8 @@ export class ApiError extends Error {
     code = "ERROR",
     existing?: DuplicateAppRef,
     details?: ApiValidationDetail[],
+    correlationId?: string,
+    retryAfterSeconds?: number,
   ) {
     super(message)
     this.name = "ApiError"
@@ -32,6 +38,8 @@ export class ApiError extends Error {
     this.code = code
     this.existing = existing
     this.details = details
+    this.correlationId = correlationId
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
@@ -43,9 +51,51 @@ type Envelope<T> = {
   error?: {
     code?: string
     message?: string
+    correlationId?: string
     existing?: DuplicateAppRef
     details?: ApiValidationDetail[]
   } | string
+}
+
+function parseRetryAfterHeader(header: string | null): number | undefined {
+  if (!header?.trim()) return undefined
+  const asInt = Number.parseInt(header.trim(), 10)
+  if (Number.isFinite(asInt) && asInt >= 0) return Math.min(asInt, 60)
+  const asDate = Date.parse(header)
+  if (Number.isFinite(asDate)) {
+    const seconds = Math.ceil((asDate - Date.now()) / 1000)
+    if (seconds > 0) return Math.min(seconds, 60)
+  }
+  return undefined
+}
+
+function throwEnvelopeError(
+  response: Response,
+  envelope: Envelope<unknown>,
+): never {
+  const err = envelope.error
+  const message =
+    typeof err === "string" ? err : err?.message || "رفض الخادم الطلب."
+  const code =
+    typeof err === "object" && err?.code ? err.code : "ERROR"
+  const existing = typeof err === "object" ? err?.existing : undefined
+  const details = typeof err === "object" ? err?.details : undefined
+  const correlationId =
+    (typeof err === "object" ? err?.correlationId : undefined) ||
+    response.headers.get("X-Correlation-Id") ||
+    undefined
+  const retryAfterSeconds = parseRetryAfterHeader(
+    response.headers.get("Retry-After"),
+  )
+  throw new ApiError(
+    message,
+    response.status,
+    code,
+    existing,
+    details,
+    correlationId || undefined,
+    retryAfterSeconds,
+  )
 }
 
 export interface PageMeta {
@@ -157,28 +207,24 @@ async function executeRequest<T>(
     const envelope = payload as Envelope<T>
     const success = envelope.success ?? envelope.ok
     if (success === false || (response.ok === false && envelope.error)) {
-      const err = envelope.error
-      const message = typeof err === "string" ? err : err?.message || "رفض الخادم الطلب."
-      const code = typeof err === "object" && err?.code ? err.code : "ERROR"
-      const existing = typeof err === "object" ? err?.existing : undefined
-      const details = typeof err === "object" ? err?.details : undefined
-      throw new ApiError(message, response.status, code, existing, details)
+      throwEnvelopeError(response, envelope)
     }
     if (!response.ok) {
-      const err = envelope.error
-      throw new ApiError(
-        typeof err === "string" ? err : err?.message || `خطأ من الخادم (${response.status})`,
-        response.status,
-        typeof err === "object" && err?.code ? err.code : "ERROR",
-        typeof err === "object" ? err?.existing : undefined,
-        typeof err === "object" ? err?.details : undefined,
-      )
+      throwEnvelopeError(response, envelope)
     }
     return { data: envelope.data as T, meta: envelope.meta }
   }
 
   if (!response.ok) {
-    throw new ApiError(`استجاب الخادم بالرمز ${response.status}.`, response.status)
+    throw new ApiError(
+      `استجاب الخادم بالرمز ${response.status}.`,
+      response.status,
+      "ERROR",
+      undefined,
+      undefined,
+      response.headers.get("X-Correlation-Id") || undefined,
+      parseRetryAfterHeader(response.headers.get("Retry-After")),
+    )
   }
 
   return { data: payload as T }

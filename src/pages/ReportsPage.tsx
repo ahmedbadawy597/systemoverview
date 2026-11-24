@@ -16,6 +16,10 @@ import { PermissionEmpty } from "@/components/common/PermissionEmpty"
 import { hasActiveFilters } from "@/domain/stats"
 import { useTicketList, useTicketStats } from "@/hooks/useTickets"
 import { useUrlFilters } from "@/hooks/useUrlFilters"
+import {
+  reportErrorDescription,
+  reportErrorTitle,
+} from "@/lib/apiLoadHardening"
 import { formatNumber } from "@/lib/format"
 import { reportsApi } from "@/services/api/reportsApi"
 import { useAuth } from "@/services/auth/AuthProvider"
@@ -47,8 +51,9 @@ export function ReportsPage() {
       .catch((error) => {
         if (!cancelled) {
           setPreviewing(false)
-          toast.error("تعذّر معاينة التقرير", {
-            description: error instanceof Error ? error.message : undefined,
+          toast.error(reportErrorTitle(error), {
+            description: reportErrorDescription(error),
+            duration: 8_000,
           })
         }
       })

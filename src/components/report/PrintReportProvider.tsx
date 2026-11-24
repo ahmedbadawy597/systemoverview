@@ -13,6 +13,12 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { EMPTY_FILTERS, type TicketFilters } from "@/domain/stats"
+import {
+  isReportTooLargeError,
+  isTransientApiError,
+  reportErrorDescription,
+  reportErrorTitle,
+} from "@/lib/apiLoadHardening"
 import { reportsApi } from "@/services/api/reportsApi"
 import { useAuth } from "@/services/auth/AuthProvider"
 
@@ -39,12 +45,14 @@ export function PrintReportProvider({ children }: { children: ReactNode }) {
   const [request, setRequest] = useState<PrintRequest | null>(null)
   const [includeImages, setIncludeImages] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [statusHint, setStatusHint] = useState<string | null>(null)
 
   const requestPrint = useCallback(
     async (next: PrintRequest = {}) => {
       const ok = await ensure("print")
       if (!ok) return
       setIncludeImages(false)
+      setStatusHint(null)
       setRequest(next)
     },
     [ensure],
@@ -53,15 +61,24 @@ export function PrintReportProvider({ children }: { children: ReactNode }) {
   async function confirmPrint() {
     if (!request || busy) return
     setBusy(true)
+    setStatusHint("جارٍ إعداد التقرير على الخادم… قد يستغرق ذلك عدة ثوانٍ.")
     try {
       const filters = request.filters ?? EMPTY_FILTERS
       const result = await reportsApi.generateNotesPdf(filters, includeImages)
       triggerBlobDownload(result.blob, result.fileName)
       toast.success("تم إصدار التقرير الرسمي")
       setRequest(null)
+      setStatusHint(null)
     } catch (error) {
-      toast.error("تعذّر إصدار التقرير", {
-        description: error instanceof Error ? error.message : undefined,
+      if (isReportTooLargeError(error) && includeImages) {
+        setIncludeImages(false)
+        setStatusHint("تم إلغاء إرفاق الصور تلقائيًا — ضيّق الفلاتر أو أعد المحاولة بدون صور.")
+      } else {
+        setStatusHint(null)
+      }
+      toast.error(reportErrorTitle(error), {
+        description: reportErrorDescription(error),
+        duration: isTransientApiError(error) || isReportTooLargeError(error) ? 8_000 : 5_000,
       })
     } finally {
       setBusy(false)
@@ -76,7 +93,9 @@ export function PrintReportProvider({ children }: { children: ReactNode }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>إصدار التقرير الرسمي</DialogTitle>
-            <DialogDescription>يُنشئ الخادم ملف PDF رسميًا وفق نطاق الفلاتر — متاح لمن لديه صلاحية التقارير.</DialogDescription>
+            <DialogDescription>
+              يُنشئ الخادم ملف PDF رسميًا وفق نطاق الفلاتر — متاح لمن لديه صلاحية التقارير.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-3 rounded-lg bg-surface-soft p-4">
@@ -97,9 +116,23 @@ export function PrintReportProvider({ children }: { children: ReactNode }) {
                   <ImageIcon className="size-3.5 text-faint" aria-hidden />
                   إرفاق صور الملاحظات
                 </span>
-                <span className="text-xs font-normal text-muted-foreground">قد يزيد حجم الملف ووقت التوليد</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  يزيد الحجم ووقت التوليد — الحد الأقصى أصغر عند تفعيل الصور
+                </span>
               </Label>
             </div>
+            {statusHint ? (
+              <p className="rounded-md border border-border/60 bg-background/80 px-3 py-2 text-xs leading-5 text-muted-foreground">
+                {busy ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="size-3.5 animate-spin text-brand" aria-hidden />
+                    {statusHint}
+                  </span>
+                ) : (
+                  statusHint
+                )}
+              </p>
+            ) : null}
           </div>
 
           <DialogFooter>
@@ -108,7 +141,7 @@ export function PrintReportProvider({ children }: { children: ReactNode }) {
             </Button>
             <Button type="button" onClick={() => void confirmPrint()} disabled={busy}>
               {busy ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              تحميل PDF
+              {busy ? "جارٍ الإصدار…" : "تحميل PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>

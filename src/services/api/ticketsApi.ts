@@ -1,5 +1,10 @@
 import type { TicketStats } from "@/domain/stats"
 import type { ApprovalStatus, DevReviewInput, DevStatus, NewTicketInput, Ticket } from "@/domain/ticket"
+import {
+  isTicketConflictError,
+  isTransientApiError,
+  sleep,
+} from "@/lib/apiLoadHardening"
 import { normalizeTicket } from "./normalize"
 import { apiRequest } from "./http"
 
@@ -118,16 +123,35 @@ export const ticketsApi = {
   },
 
   async addTicket(input: NewTicketInput): Promise<Ticket | null> {
-    const data = await apiRequest<unknown>("/tickets", {
-      method: "POST",
-      body: {
-        name: input.name.trim(),
-        description: input.description.trim(),
-        appId: input.appId || undefined,
-        images: input.images,
-      },
-    })
-    return data ? mapTicket(data) : null
+    const body = {
+      name: input.name.trim(),
+      description: input.description.trim(),
+      appId: input.appId || undefined,
+      images: input.images,
+    }
+
+    const attempt = () => apiRequest<unknown>("/tickets", { method: "POST", body })
+
+    try {
+      const data = await attempt()
+      return data ? mapTicket(data) : null
+    } catch (error) {
+      // Rare ticket-id race or brief throttle — one safe retry (server allocates ids).
+      if (isTicketConflictError(error)) {
+        const data = await attempt()
+        return data ? mapTicket(data) : null
+      }
+      if (isTransientApiError(error)) {
+        const waitMs =
+          (error.retryAfterSeconds && error.retryAfterSeconds > 0
+            ? error.retryAfterSeconds
+            : 10) * 1000
+        await sleep(waitMs)
+        const data = await attempt()
+        return data ? mapTicket(data) : null
+      }
+      throw error
+    }
   },
 
   async approveTicket(id: string): Promise<void> {

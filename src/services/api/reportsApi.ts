@@ -1,5 +1,9 @@
 import type { TicketFilters } from "@/domain/stats"
 import { env } from "@/config/env"
+import {
+  parseRetryAfterSeconds,
+  withTransientRetry,
+} from "@/lib/apiLoadHardening"
 import { ApiError } from "./http"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./session"
 
@@ -85,10 +89,21 @@ async function authorizedFetch(path: string, init: RequestInit, retried = false)
 }
 
 async function readApiError(response: Response): Promise<ApiError> {
+  const retryAfterSeconds = parseRetryAfterSeconds(
+    response.headers.get("Retry-After"),
+    response.status === 429 ? 10 : 5,
+  )
+  const headerCorrelation =
+    response.headers.get("X-Correlation-Id") || undefined
   const text = await response.text()
   try {
     const payload = JSON.parse(text) as {
-      error?: { code?: string; message?: string } | string
+      error?: {
+        code?: string
+        message?: string
+        correlationId?: string
+        details?: { field?: string; message: string }[]
+      } | string
       message?: string
     }
     const err = payload.error
@@ -97,9 +112,33 @@ async function readApiError(response: Response): Promise<ApiError> {
         ? err
         : err?.message || payload.message || `خطأ من الخادم (${response.status})`
     const code = typeof err === "object" && err?.code ? err.code : "ERROR"
-    return new ApiError(message, response.status, code)
+    const details = typeof err === "object" ? err?.details : undefined
+    const correlationId =
+      (typeof err === "object" ? err?.correlationId : undefined) ||
+      headerCorrelation
+    return new ApiError(
+      message,
+      response.status,
+      code,
+      undefined,
+      details,
+      correlationId,
+      response.status === 503 || response.status === 429
+        ? retryAfterSeconds
+        : undefined,
+    )
   } catch {
-    return new ApiError(`استجاب الخادم بالرمز ${response.status}.`, response.status)
+    return new ApiError(
+      `استجاب الخادم بالرمز ${response.status}.`,
+      response.status,
+      "ERROR",
+      undefined,
+      undefined,
+      headerCorrelation,
+      response.status === 503 || response.status === 429
+        ? retryAfterSeconds
+        : undefined,
+    )
   }
 }
 
@@ -117,54 +156,78 @@ function filenameFromDisposition(header: string | null, fallback: string): strin
   return plain?.[1]?.trim() || fallback
 }
 
+async function requestNotesPdfOnce(
+  filters: TicketFilters,
+  includeImages: boolean,
+): Promise<NotesPdfResult> {
+  const response = await authorizedFetch("/reports/notes/pdf", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/pdf, application/json",
+    },
+    body: JSON.stringify(bodyFromFilters(filters, includeImages)),
+  })
+
+  if (!response.ok) throw await readApiError(response)
+
+  const contentType = response.headers.get("Content-Type") || ""
+  if (!contentType.includes("application/pdf")) {
+    throw await readApiError(response)
+  }
+
+  const blob = await response.blob()
+  const fileName = filenameFromDisposition(
+    response.headers.get("Content-Disposition"),
+    `notes-report-${new Date().toISOString().slice(0, 10)}.pdf`,
+  )
+  return {
+    fileName,
+    blob,
+    generatedAt: new Date().toISOString(),
+  }
+}
+
+async function requestNotesPreviewOnce(
+  filters: TicketFilters,
+  includeImages: boolean,
+): Promise<NotesPreviewResult> {
+  const response = await authorizedFetch("/reports/notes/preview", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(bodyFromFilters(filters, includeImages)),
+  })
+  if (!response.ok) throw await readApiError(response)
+  const payload = (await response.json()) as {
+    success?: boolean
+    data?: NotesPreviewResult
+  }
+  if (!payload?.data) {
+    throw new ApiError("استجابة معاينة التقرير غير صالحة.", response.status, "PARSE")
+  }
+  return payload.data
+}
+
 export const reportsApi = {
+  /**
+   * Official notes PDF. Retries 503/429 with Retry-After (up to 3 attempts).
+   * 413 (too many rows) is not retried — caller must narrow filters.
+   */
   async generateNotesPdf(filters: TicketFilters, includeImages = false): Promise<NotesPdfResult> {
-    const response = await authorizedFetch("/reports/notes/pdf", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/pdf, application/json",
-      },
-      body: JSON.stringify(bodyFromFilters(filters, includeImages)),
+    return withTransientRetry(() => requestNotesPdfOnce(filters, includeImages), {
+      maxAttempts: 3,
+      baseDelayMs: 5000,
     })
-
-    if (!response.ok) throw await readApiError(response)
-
-    const contentType = response.headers.get("Content-Type") || ""
-    if (!contentType.includes("application/pdf")) {
-      // Unexpected JSON envelope — surface as API error.
-      throw await readApiError(response)
-    }
-
-    const blob = await response.blob()
-    const fileName = filenameFromDisposition(
-      response.headers.get("Content-Disposition"),
-      `notes-report-${new Date().toISOString().slice(0, 10)}.pdf`,
-    )
-    return {
-      fileName,
-      blob,
-      generatedAt: new Date().toISOString(),
-    }
   },
 
+  /** HTML preview — same transient retry policy as PDF. */
   async previewNotesHtml(filters: TicketFilters, includeImages = false): Promise<NotesPreviewResult> {
-    const response = await authorizedFetch("/reports/notes/preview", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(bodyFromFilters(filters, includeImages)),
-    })
-    if (!response.ok) throw await readApiError(response)
-    const payload = (await response.json()) as {
-      success?: boolean
-      data?: NotesPreviewResult
-    }
-    if (!payload?.data) {
-      throw new ApiError("استجابة معاينة التقرير غير صالحة.", response.status, "PARSE")
-    }
-    return payload.data
+    return withTransientRetry(
+      () => requestNotesPreviewOnce(filters, includeImages),
+      { maxAttempts: 3, baseDelayMs: 5000 },
+    )
   },
 }
